@@ -128,7 +128,7 @@ def suporte(msg):
 
 ✍️ Envie abaixo sua mensagem, dúvida ou problema.
 Informe sempre seu nome completo e número do Cartão SUS.
-Nossa equipe retornará em breve!""", parse_mode="Markdown")
+Nossa equipe retornará o contato em breve!""", parse_mode="Markdown")
 
 @bot.message_handler(func=lambda m: m.from_user.id in em_atendimento)
 def recebe_msg(msg):
