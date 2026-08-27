@@ -143,4 +143,4 @@ if __name__ == "__main__":
     print("🤖 Central de Atendimento rodando...")
     try: bot.get_updates(offset=-1, timeout=0)
     except: pass
-    bot.infinity_polling(timeout=10, long_polling_timeout=5)
+    bot.infinity_polling(timeout=12, long_polling_timeout=6)
