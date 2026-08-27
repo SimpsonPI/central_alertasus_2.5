@@ -13,7 +13,7 @@ mp = mercadopago.SDK(MERCADO_PAGO_ACCESS_TOKEN)
 estado_suporte = {}
 
 # ==================== LINK DO BOT PRINCIPAL ALERTASUS 2.0 ====================
-BOT_PRINCIPAL_LINK = "https://t.me/meu_atendimento_123_bot"  # ⚠️ Troque pelo link REAL do bot principal
+BOT_PRINCIPAL_LINK = "https://t.me/SEU_BOT_PRINCIPAL_AQUI"
 
 # ==================== COMANDO /START ====================
 @bot.message_handler(commands=['start'])
@@ -109,7 +109,7 @@ Valor: R$ {escolha['valor']:.2f}
         )
     )
 
-# ==================== COMANDO /CADASTRAR — Apenas Instruções + Link ====================
+# ==================== COMANDO /CADASTRAR — Apenas Instruções ====================
 @bot.message_handler(commands=['cadastrar'])
 def cadastrar(msg):
     bot.send_message(msg.chat.id,
@@ -128,13 +128,13 @@ Para cadastrar seu acompanhamento, você precisará informar:
 
 👉 [Clique aqui para cadastrar](""" + BOT_PRINCIPAL_LINK + """)""", parse_mode="Markdown", disable_web_page_preview=True)
 
-# ==================== COMANDO /GERENCIAR — Apenas Instruções + Link ====================
+# ==================== COMANDO /GERENCIAR — Apenas Instruções ====================
 @bot.message_handler(commands=['gerenciar'])
 def gerenciar(msg):
     bot.send_message(msg.chat.id,
 """🛠️ *Gerenciar Suas Regulações*
 
-Para visualizar, corrigir ou excluir suas regulações cadastradas, acesse o bot principal do AlertaSUS 2.0:
+Para visualizar, corrigir ou excluir suas regulações cadastradas:
 
 ✅ Visualizar regulações
 ✏️ Corrigir dados cadastrados
