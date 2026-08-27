@@ -1,26 +1,22 @@
 import telebot
 from telebot import types
 from supabase import create_client, Client
-import mercadopago
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# ====== LEITURA DAS VARIÁVEIS DO AMBIENTE ======
+# ====== VARIÁVEIS ======
 BOT_TOKEN = os.getenv("BOT_PUBLICO_TOKEN")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
-MP_TOKEN = os.getenv("MERCADO_PAGO_ACCESS_TOKEN")
-LINK_PRINCIPAL = os.getenv("BOT_PRINCIPAL_LINK", "https://t.me/SEU_BOT")
+LINK_PRINCIPAL = os.getenv("BOT_PRINCIPAL_LINK", "https://t.me/meu_atendimento_123_bot")
 
 bot = telebot.TeleBot(BOT_TOKEN)
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-mp = mercadopago.SDK(MP_TOKEN)
-
 em_atendimento = {}
 
-# ====== /START ======
+# ==================== /START ====================
 @bot.message_handler(commands=['start'])
 def inicio(msg):
     uid = msg.from_user.id
@@ -32,124 +28,107 @@ def inicio(msg):
     bot.send_message(msg.chat.id,
 f"""🙋‍♂️ *Central de Atendimento AlertaSUS 2.5*
 
-Seu ID: `{uid}`
+Seu ID único: `{uid}`
 
-Aqui você encontra ajuda e orientações sobre o sistema.
+Aqui você encontra orientações, dúvidas frequentes e suporte para o sistema de acompanhamento de regulações de exames e consultas na rede pública de saúde.
 
-⚠️ Para cadastrar ou acompanhar, use o Bot Principal:
+⚠️ Para cadastrar ou acompanhar sua regulação, acesse o Bot Principal:
 👉 {LINK_PRINCIPAL}
 
-Escolha uma opção:""", parse_mode="Markdown", reply_markup=menu, disable_web_page_preview=True)
+📋 Escolha uma opção abaixo:""", parse_mode="Markdown", reply_markup=menu, disable_web_page_preview=True)
 
-# ====== /AJUDA ======
+# ==================== /AJUDA ====================
 @bot.message_handler(commands=['ajuda'])
 def ajuda(msg):
     bot.send_message(msg.chat.id,
 f"""❓ *Dúvidas Frequentes*
 
-⏱️ Acompanhamento: atualizado periodicamente.
-🔢 Cartão SUS: 15 dígitos, sem pontos.
-📱 Celular: com DDD, só números.
-📅 Nascimento: DD/MM/AAAA.
-🔤 CBO: digite 0 se não souber.
+⏱️ *Prazos:* A verificação na FMS é feita periodicamente. Você será avisado(a) na atualização.
+🔢 *Cartão SUS:* 15 dígitos, sem pontos nem traços.
+📱 *Celular:* Com DDD, apenas números. Ex: 86999998888
+📅 *Nascimento:* DD/MM/AAAA. Ex: 31/12/1990
+🔤 *CBO:* Se não souber, digite 0.
 
-👉 Cadastro e mais ajuda no Bot Principal:
+🔑 *Problemas:* Use /suporte informando nome e Cartão SUS.
+
+👉 Cadastro e acompanhamento no Bot Principal:
 {LINK_PRINCIPAL}""", parse_mode="Markdown", disable_web_page_preview=True)
 
-# ====== /CADASTRAR ======
+# ==================== /CADASTRAR ====================
 @bot.message_handler(commands=['cadastrar'])
 def cadastrar(msg):
     bot.send_message(msg.chat.id,
-f"""📋 *Como Cadastrar*
+f"""📋 *Como Cadastrar sua Regulação*
 
-O cadastro é feito no Bot Principal com:
-1️⃣ Cartão SUS (15 dígitos)
+O cadastro é feito no Bot Principal com estes dados:
+
+1️⃣ Cartão SUS — 15 dígitos
 2️⃣ Nome completo
 3️⃣ Celular com DDD
-4️⃣ Data de nascimento
-5️⃣ CBO → 0 se não souber
-6️⃣ Procedimento
+4️⃣ Data de nascimento (DD/MM/AAAA)
+5️⃣ CBO — digite 0 se não souber
+6️⃣ Procedimento solicitado
 
 👉 Cadastre aqui:
 {LINK_PRINCIPAL}""", parse_mode="Markdown", disable_web_page_preview=True)
 
-# ====== /GERENCIAR ======
+# ==================== /GERENCIAR ====================
 @bot.message_handler(commands=['gerenciar'])
 def gerenciar(msg):
     bot.send_message(msg.chat.id,
-f"""🛠️ *Gerenciar Regulações*
+f"""🛠️ *Gerenciar Suas Regulações*
 
 No Bot Principal você pode:
-✅ Ver status
+
+✅ Visualizar status
 ✏️ Corrigir dados
-🗑️ Excluir
+🗑️ Excluir regulações
 
 👉 Acesse:
 {LINK_PRINCIPAL}""", parse_mode="Markdown", disable_web_page_preview=True)
 
-# ====== /PLANOS ======
+# ==================== /PLANOS ====================
 @bot.message_handler(commands=['planos'])
 def planos(msg):
-    botoes = types.InlineKeyboardMarkup()
-    botoes.add(
-        types.InlineKeyboardButton("Semestral — R$ 9,90", callback_data="plano_sem"),
-        types.InlineKeyboardButton("Anual — R$ 14,99", callback_data="plano_ano")
-    )
     bot.send_message(msg.chat.id,
-"""💎 *Planos AlertaSUS 2.5*
+f"""💎 *Planos AlertaSUS 2.5*
 
-✅ Acompanhamento ilimitado
-✅ Avisos na hora
+Escolha o plano que melhor se adapta ao seu acompanhamento:
+
+✅ Semestral — Apenas R$ 9,90
+✅ Anual — Apenas R$ 14,99
+
+Benefícios inclusos:
+✅ Acompanhamento ilimitado de regulações
+✅ Notificações em tempo real
 ✅ Suporte prioritário
 
-Escolha:""", reply_markup=botoes, parse_mode="Markdown")
+👉 Para assinar e pagar, acesse o Bot Principal:
+{LINK_PRINCIPAL}""", parse_mode="Markdown", disable_web_page_preview=True)
 
-@bot.callback_query_handler(func=lambda c: c.data.startswith("plano_"))
-def pagamentos(call):
-    dados = {
-        "plano_sem": {"nome": "Semestral", "valor": 9.90},
-        "plano_ano": {"nome": "Anual", "valor": 14.99}
-    }
-    esc = dados.get(call.data)
-    if not esc:
-        bot.answer_callback_query(call.id, "Inválido")
-        return
-
-    req = {
-        "items": [{"title": f"Plano {esc['nome']}", "quantity":1, "unit_price": esc["valor"]}],
-        "external_reference": f"usr_{call.from_user.id}",
-        "payment_methods": {"excluded_payment_types":[{"id":"credit_card"}], "installments":1}
-    }
-    link = mp.preference().create(req)["response"]["init_point"]
-
-    bot.edit_message_text(
-f"""💎 Plano {esc['nome']}
-Valor: R$ {esc['valor']:.2f}
-
-✅ Pague via Pix:""", call.message.chat.id, call.message.id, parse_mode="Markdown",
-        reply_markup=types.InlineKeyboardMarkup([[types.InlineKeyboardButton("🔗 Pagar", url=link)]]))
-
-# ====== /SOBRE ======
+# ==================== /SOBRE ====================
 @bot.message_handler(commands=['sobre'])
 def sobre(msg):
     bot.send_message(msg.chat.id,
 f"""ℹ️ *Sobre o AlertaSUS 2.5*
 
-Sistema independente de acompanhamento de regulações.
-⚠️ Não somos a FMS/SUS — apenas acompanhamos dados públicos.
+Sistema independente de acompanhamento de regulações de exames e consultas na rede pública de saúde.
 
-👉 Acesse o Bot Principal:
+⚠️ Não somos a FMS nem o SUS — apenas acompanhamos dados públicos disponíveis.
+
+👉 Cadastre e acompanhe no Bot Principal:
 {LINK_PRINCIPAL}""", parse_mode="Markdown", disable_web_page_preview=True)
 
-# ====== /SUPORTE ======
+# ==================== /SUPORTE ====================
 @bot.message_handler(commands=['suporte'])
 def suporte(msg):
     em_atendimento[msg.from_user.id] = True
     bot.send_message(msg.chat.id,
 """📞 *Atendimento*
 
-✍️ Escreva abaixo sua dúvida.
-Informe nome e Cartão SUS. Responderemos em breve!""", parse_mode="Markdown")
+✍️ Envie abaixo sua mensagem, dúvida ou problema.
+Informe sempre seu nome completo e número do Cartão SUS.
+Nossa equipe retornará em breve!""", parse_mode="Markdown")
 
 @bot.message_handler(func=lambda m: m.from_user.id in em_atendimento)
 def recebe_msg(msg):
@@ -157,9 +136,9 @@ def recebe_msg(msg):
     texto = msg.text.strip()
     del em_atendimento[uid]
     supabase.table("chamados").insert({"usuario_id": uid, "mensagem_texto": texto}).execute()
-    bot.send_message(msg.chat.id, "✅ Enviado! Responderemos em breve. Consulte /ajuda enquanto aguarda.")
+    bot.send_message(msg.chat.id, "✅ Sua mensagem foi enviada! Responderemos em breve. Consulte /ajuda enquanto aguarda.")
 
-# ====== INICIAR ======
+# ==================== INICIAR ====================
 if __name__ == "__main__":
     print("🤖 Central de Atendimento rodando...")
     try: bot.get_updates(offset=-1, timeout=0)
