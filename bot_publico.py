@@ -115,7 +115,7 @@ def cadastrar(msg):
     bot.send_message(msg.chat.id,
 """📋 *Como Cadastrar sua Regulação*
 
-Para cadastrar your acompanhamento, você precisará informar:
+Para cadastrar seu acompanhamento, você precisará informar:
 
 1️⃣ Cartão SUS — 15 dígitos
 2️⃣ Nome completo
@@ -134,7 +134,7 @@ def gerenciar(msg):
     bot.send_message(msg.chat.id,
 """🛠️ *Gerenciar Suas Regulações*
 
-Para visualizar, corrigir ou excluir suas regulações cadastradas, acesse o bot principal do AlertaSUS 2.0:
+Para visualizar, corrigir ou excluir suas regulações cadastradas:
 
 ✅ Visualizar regulações
 ✏️ Corrigir dados cadastrados
