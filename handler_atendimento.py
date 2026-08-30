@@ -11,7 +11,11 @@ from database_atendimento import (
     obter_email_suporte
 )
 from database import supabase
-from config import ADMIN_ID
+try:
+    from config import ADMIN_CHAT_ID
+    ADMIN_ID = ADMIN_CHAT_ID or 5242040324  # Usa ADMIN_CHAT_ID se existir, senão fallback
+except ImportError:
+    ADMIN_ID = 5242040324  # Fallback seguro
 
 logger = logging.getLogger(__name__)
 
