@@ -21,7 +21,13 @@ from handler_atendimento import (
     comando_ver_chamados,
     comando_responder_chamado,
     cancelar_atendimento,
-    callback_email_suporte,  # <-- ADICIONE ESTA LINHA
+    callback_email_suporte,
+    faq_cadastrar,
+    faq_consultar,
+    faq_id,
+    faq_alterar,
+    faq_planos,
+    faq_governo,
     AGUARDANDO_MENSAGEM_CHAMADO,
 )
 
@@ -75,6 +81,14 @@ def main():
     app.add_handler(CallbackQueryHandler(ver_meus_chamados, pattern="^ver_chamados$"))
     app.add_handler(CallbackQueryHandler(cancelar_atendimento, pattern="^cancelar_atendimento$"))
     app.add_handler(CallbackQueryHandler(callback_email_suporte, pattern="^atendimento_email$"))
+
+    # Callbacks do FAQ
+    app.add_handler(CallbackQueryHandler(faq_cadastrar, pattern="^faq_cadastrar$"))
+    app.add_handler(CallbackQueryHandler(faq_consultar, pattern="^faq_consultar$"))
+    app.add_handler(CallbackQueryHandler(faq_id, pattern="^faq_id$"))
+    app.add_handler(CallbackQueryHandler(faq_alterar, pattern="^faq_alterar$"))
+    app.add_handler(CallbackQueryHandler(faq_planos, pattern="^faq_planos$"))
+    app.add_handler(CallbackQueryHandler(faq_governo, pattern="^faq_governo$"))
 
     # Handler para processar perguntas do FAQ quando o usuário digita texto
     app.add_handler(
