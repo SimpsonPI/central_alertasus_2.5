@@ -11,7 +11,6 @@ from telegram.ext import (
     filters,
 )
 
-from config import TELEGRAM_BOT_TOKEN
 from handler_atendimento import (
     menu_atendimento,
     iniciar_faq,
@@ -22,6 +21,7 @@ from handler_atendimento import (
     comando_ver_chamados,
     comando_responder_chamado,
     cancelar_atendimento,
+    callback_email_suporte,  # <-- ADICIONE ESTA LINHA
     AGUARDANDO_MENSAGEM_CHAMADO,
 )
 
@@ -73,9 +73,9 @@ def main():
     app.add_handler(CallbackQueryHandler(iniciar_faq, pattern="^atendimento_faq$"))
     app.add_handler(CallbackQueryHandler(iniciar_atendimento_humanizado, pattern="^atendimento_humanizado$"))
     app.add_handler(CallbackQueryHandler(ver_meus_chamados, pattern="^ver_chamados$"))
-    app.add_handler(CallbackQueryHandler(menu_atendimento, pattern="^atendimento_email$"))
     app.add_handler(CallbackQueryHandler(cancelar_atendimento, pattern="^cancelar_atendimento$"))
-    
+    app.add_handler(CallbackQueryHandler(callback_email_suporte, pattern="^atendimento_email$"))
+
     # Handler para processar perguntas do FAQ quando o usuário digita texto
     app.add_handler(
         MessageHandler(filters.TEXT & ~filters.COMMAND, processar_pergunta_faq),
