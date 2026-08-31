@@ -11,6 +11,7 @@ from telegram.ext import (
     filters,
 )
 
+from config import TELEGRAM_BOT_TOKEN
 from handler_atendimento import (
     menu_atendimento,
     iniciar_faq,
@@ -22,12 +23,7 @@ from handler_atendimento import (
     comando_responder_chamado,
     cancelar_atendimento,
     callback_email_suporte,
-    faq_cadastrar,
-    faq_consultar,
-    faq_id,
-    faq_alterar,
-    faq_planos,
-    faq_governo,
+    processar_mensagem_geral,
     AGUARDANDO_MENSAGEM_CHAMADO,
 )
 
@@ -79,21 +75,13 @@ def main():
     app.add_handler(CallbackQueryHandler(iniciar_faq, pattern="^atendimento_faq$"))
     app.add_handler(CallbackQueryHandler(iniciar_atendimento_humanizado, pattern="^atendimento_humanizado$"))
     app.add_handler(CallbackQueryHandler(ver_meus_chamados, pattern="^ver_chamados$"))
-    app.add_handler(CallbackQueryHandler(cancelar_atendimento, pattern="^cancelar_atendimento$"))
     app.add_handler(CallbackQueryHandler(callback_email_suporte, pattern="^atendimento_email$"))
+    app.add_handler(CallbackQueryHandler(cancelar_atendimento, pattern="^cancelar_atendimento$"))
 
-    # Callbacks do FAQ
-    app.add_handler(CallbackQueryHandler(faq_cadastrar, pattern="^faq_cadastrar$"))
-    app.add_handler(CallbackQueryHandler(faq_consultar, pattern="^faq_consultar$"))
-    app.add_handler(CallbackQueryHandler(faq_id, pattern="^faq_id$"))
-    app.add_handler(CallbackQueryHandler(faq_alterar, pattern="^faq_alterar$"))
-    app.add_handler(CallbackQueryHandler(faq_planos, pattern="^faq_planos$"))
-    app.add_handler(CallbackQueryHandler(faq_governo, pattern="^faq_governo$"))
-
-    # Handler para processar perguntas do FAQ quando o usuário digita texto
+    # Handler global para mensagens (IA automática)
     app.add_handler(
-        MessageHandler(filters.TEXT & ~filters.COMMAND, processar_pergunta_faq),
-        group=1
+        MessageHandler(filters.TEXT & ~filters.COMMAND, processar_mensagem_geral),
+        group=2
     )
 
     # Servidor HTTP auxiliar para o Railway manter a porta aberta
