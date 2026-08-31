@@ -179,7 +179,6 @@ async def processar_pergunta_faq(update: Update, context: ContextTypes.DEFAULT_T
         
         await iniciar_atendimento_humanizado(update, context, mensagem_inicial=texto_usuario)
 
-
 # ==========================================
 # ATENDIMENTO HUMANIZADO
 # ==========================================
