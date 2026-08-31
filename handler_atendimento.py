@@ -11,11 +11,12 @@ from database_atendimento import (
     obter_email_suporte
 )
 from database import supabase
+
 try:
     from config import ADMIN_CHAT_ID
-    ADMIN_ID = ADMIN_CHAT_ID or 5242040324  # Usa ADMIN_CHAT_ID se existir, senão fallback
+    ADMIN_ID = ADMIN_CHAT_ID or 5242040324
 except ImportError:
-    ADMIN_ID = 5242040324  # Fallback seguro
+    ADMIN_ID = 5242040324
 
 logger = logging.getLogger(__name__)
 
@@ -32,8 +33,9 @@ async def menu_atendimento(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "🤖 <b>Central de Atendimento AlertaSUS 2.0</b>\n\n"
         "Olá! Como posso ajudar você hoje?\n\n"
         "<b>Opções disponíveis:</b>\n"
-        "• 💬 <b>FAQ Automático:</b> Respostas instantâneas para dúvidas frequentes\n"
-        "• 👤 <b>Atendimento Humanizado:</b> Fale diretamente com nossa equipe\n\n"
+        "• ❓ <b>FAQ Automático:</b> Respostas instantâneas para dúvidas frequentes\n"
+        "• 👤 <b>Atendimento Humanizado:</b> Fale diretamente com nossa equipe\n"
+        "• 📧 <b>Email de Suporte:</b> suportealertasus@gmail.com\n\n"
         "Selecione uma opção abaixo:"
     )
     
@@ -42,8 +44,10 @@ async def menu_atendimento(update: Update, context: ContextTypes.DEFAULT_TYPE):
             InlineKeyboardButton("❓ FAQ Automático", callback_data="atendimento_faq"),
             InlineKeyboardButton("👤 Atendimento Humanizado", callback_data="atendimento_humanizado")
         ],
-        [InlineKeyboardButton("📧 Email de Suporte", callback_data="atendimento_email")],
-        [InlineKeyboardButton("⬅️ Voltar ao Menu Principal", callback_data="voltar_inicio")]
+        [
+            InlineKeyboardButton("📧 Email de Suporte", url="mailto:suportealertasus@gmail.com")
+        ],
+        [InlineKeyboardButton("⬅️ Voltar ao Menu Principal", callback_data="iniciar")]
     ])
     
     if update.callback_query:
@@ -59,41 +63,66 @@ async def menu_atendimento(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def iniciar_faq(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Inicia o atendimento via FAQ automático."""
-    query = update.callback_query
-    await query.answer()
+    if update.callback_query:
+        query = update.callback_query
+        await query.answer()
+        
+        texto = (
+            "📚 <b>FAQ Automático - AlertaSUS 2.0</b>\n\n"
+            "Digite abaixo sua dúvida que nossa IA tentará responder automaticamente.\n"
+            "Ou clique em um dos tópicos abaixo:\n\n"
+            "1️⃣ Como cadastrar uma regulação?\n"
+            "2️⃣ Como consultar minhas regulações?\n"
+            "3️⃣ Onde encontrar o Cartão SUS ou ID?\n"
+            "4️⃣ Como alterar meus dados?\n"
+            "5️⃣ Planos e Assinaturas\n"
+            "6️⃣ O AlertaSUS tem vínculo com o governo?"
+        )
+        
+        teclado = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("1️⃣ Cadastrar", callback_data="faq_cadastrar"),
+                InlineKeyboardButton("2️⃣ Consultar", callback_data="faq_consultar")
+            ],
+            [
+                InlineKeyboardButton("3️⃣ Cartão SUS/ID", callback_data="faq_id"),
+                InlineKeyboardButton("4️⃣ Alterar Dados", callback_data="faq_alterar")
+            ],
+            [
+                InlineKeyboardButton("5️⃣ Planos", callback_data="faq_planos"),
+                InlineKeyboardButton("6️⃣ Vínculo Governo", callback_data="faq_governo")
+            ],
+            [InlineKeyboardButton("👤 Falar com Humano", callback_data="atendimento_humanizado")],
+            [InlineKeyboardButton("⬅️ Voltar", callback_data="atendimento_menu")]
+        ])
+        
+        await query.edit_message_text(texto, parse_mode="HTML", reply_markup=teclado)
+    else:
+        texto = (
+            "📚 <b>FAQ Automático - AlertaSUS 2.0</b>\n\n"
+            "Digite abaixo sua dúvida que nossa IA tentará responder automaticamente.\n"
+            "Ou clique em um dos tópicos abaixo:"
+        )
+        
+        teclado = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("1️⃣ Cadastrar", callback_data="faq_cadastrar"),
+                InlineKeyboardButton("2️⃣ Consultar", callback_data="faq_consultar")
+            ],
+            [
+                InlineKeyboardButton("3️⃣ Cartão SUS/ID", callback_data="faq_id"),
+                InlineKeyboardButton("4️⃣ Alterar Dados", callback_data="faq_alterar")
+            ],
+            [
+                InlineKeyboardButton("5️⃣ Planos", callback_data="faq_planos"),
+                InlineKeyboardButton("6️⃣ Vínculo Governo", callback_data="faq_governo")
+            ],
+            [InlineKeyboardButton("👤 Falar com Humano", callback_data="atendimento_humanizado")],
+            [InlineKeyboardButton("⬅️ Voltar", callback_data="atendimento_menu")]
+        ])
+        
+        await update.message.reply_text(texto, parse_mode="HTML", reply_markup=teclado)
     
-    texto = (
-        "📚 <b>FAQ Automático - AlertaSUS 2.0</b>\n\n"
-        "Digite abaixo sua dúvida que nossa IA tentará responder automaticamente.\n"
-        "Ou clique em um dos tópicos abaixo:\n\n"
-        "1️⃣ Como cadastrar uma regulação?\n"
-        "2️⃣ Como consultar minhas regulações?\n"
-        "3️⃣ Onde encontrar o Cartão SUS ou ID?\n"
-        "4️⃣ Como alterar meus dados?\n"
-        "5️⃣ Planos e Assinaturas\n"
-        "6️⃣ O AlertaSUS tem vínculo com o governo?"
-    )
-    
-    teclado = InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("1️⃣ Cadastrar", callback_data="faq_cadastrar"),
-            InlineKeyboardButton("2️⃣ Consultar", callback_data="faq_consultar")
-        ],
-        [
-            InlineKeyboardButton("3️⃣ Cartão SUS/ID", callback_data="faq_id"),
-            InlineKeyboardButton("4️⃣ Alterar Dados", callback_data="faq_alterar")
-        ],
-        [
-            InlineKeyboardButton("5️⃣ Planos", callback_data="faq_planos"),
-            InlineKeyboardButton("6️⃣ Vínculo Governo", callback_data="faq_governo")
-        ],
-        [InlineKeyboardButton("👤 Falar com Humano", callback_data="atendimento_humanizado")],
-        [InlineKeyboardButton("⬅️ Voltar", callback_data="atendimento_menu")]
-    ])
-    
-    await query.edit_message_text(texto, parse_mode="HTML", reply_markup=teclado)
-    
-    # Registra que o usuário está no modo FAQ
     context.user_data["modo_atendimento"] = "faq"
 
 
@@ -102,17 +131,17 @@ async def processar_pergunta_faq(update: Update, context: ContextTypes.DEFAULT_T
     if not update.message or not update.message.text:
         return
     
-    texto_usuario = update.message.text
-    
-    # Verifica se o usuário está no modo FAQ
     if context.user_data.get("modo_atendimento") != "faq":
         return
     
-    # Busca resposta no FAQ
+    texto_usuario = update.message.text
+    
+    if texto_usuario.startswith("/"):
+        return
+    
     resposta_faq = await buscar_faq_por_palavras_chave(texto_usuario)
     
     if resposta_faq:
-        # Registra no histórico
         await registrar_historico(
             chat_id=str(update.effective_user.id),
             tipo="faq_automatico",
@@ -120,13 +149,11 @@ async def processar_pergunta_faq(update: Update, context: ContextTypes.DEFAULT_T
             origem="bot"
         )
         
-        # Envia a resposta encontrada
         await update.message.reply_text(
             resposta_faq["resposta"],
             parse_mode="HTML"
         )
         
-        # Oferece opção de atendimento humanizado
         teclado = InlineKeyboardMarkup([
             [InlineKeyboardButton("👤 Falar com Atendente", callback_data="atendimento_humanizado")],
             [InlineKeyboardButton("❓ Outra pergunta", callback_data="atendimento_faq")]
@@ -137,13 +164,11 @@ async def processar_pergunta_faq(update: Update, context: ContextTypes.DEFAULT_T
             reply_markup=teclado
         )
     else:
-        # Se não encontrou resposta, direciona para atendimento humanizado
         await update.message.reply_text(
             "🤔 Não encontrei uma resposta automática para sua pergunta.\n\n"
             "Vou direcionar você para nosso atendimento humanizado para que possamos ajudar melhor!"
         )
         
-        # Cria chamado automaticamente
         await iniciar_atendimento_humanizado(update, context, mensagem_inicial=texto_usuario)
 
 
@@ -176,10 +201,8 @@ async def iniciar_atendimento_humanizado(update: Update, context: ContextTypes.D
             parse_mode="HTML"
         )
     
-    # Define o estado como aguardando mensagem
     context.user_data["modo_atendimento"] = "humanizado"
     
-    # Se veio com mensagem inicial (do FAQ), registra automaticamente
     if mensagem_inicial:
         await processar_mensagem_humanizado(update, context, mensagem_inicial)
     
@@ -192,7 +215,6 @@ async def processar_mensagem_humanizado(update: Update, context: ContextTypes.DE
     if context.user_data.get("modo_atendimento") != "humanizado":
         return
     
-    # Obtém a mensagem (se não foi passada como parâmetro)
     mensagem = mensagem_texto or (update.message.text if update.message else None)
     
     if not mensagem:
@@ -202,17 +224,13 @@ async def processar_mensagem_humanizado(update: Update, context: ContextTypes.DE
     chat_id = str(user.id)
     nome_usuario = f"{user.first_name} {user.last_name or ''}".strip() or "Usuário"
     
-    # Registra chamado de suporte
     chamado_id = await registrar_chamado_suporte(chat_id, nome_usuario, mensagem)
     
     if chamado_id:
-        # Adiciona à fila
         await adicionar_mensagem_fila(chamado_id, chat_id, mensagem, "usuario")
         
-        # Registra no histórico
         await registrar_historico(chat_id, "atendimento_humanizado", mensagem, "usuario")
         
-        # Notifica o administrador
         try:
             await context.bot.send_message(
                 chat_id=ADMIN_ID,
@@ -229,7 +247,6 @@ async def processar_mensagem_humanizado(update: Update, context: ContextTypes.DE
         except Exception as e:
             logger.error(f"Erro ao notificar admin: {e}")
         
-        # Confirma ao usuário
         if update.message:
             await update.message.reply_text(
                 "✅ <b>Mensagem recebida com sucesso!</b>\n\n"
@@ -240,10 +257,9 @@ async def processar_mensagem_humanizado(update: Update, context: ContextTypes.DE
                 parse_mode="HTML"
             )
         
-        # Oferece opções
         teclado = InlineKeyboardMarkup([
             [InlineKeyboardButton("📋 Ver Meus Chamados", callback_data="ver_chamados")],
-            [InlineKeyboardButton("⬅️ Voltar ao Menu", callback_data="voltar_inicio")]
+            [InlineKeyboardButton("⬅️ Voltar ao Menu", callback_data="iniciar")]
         ])
         
         if update.message:
@@ -257,6 +273,28 @@ async def processar_mensagem_humanizado(update: Update, context: ContextTypes.DE
                 "❌ Ocorreu um erro ao registrar seu chamado.\n"
                 "Por favor, tente novamente ou contate: suportealertasus@gmail.com"
             )
+    
+    return ConversationHandler.END
+
+
+# ==========================================
+# CANCELAR ATENDIMENTO
+# ==========================================
+
+async def cancelar_atendimento(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Cancela o atendimento humanizado."""
+    
+    context.user_data.pop("modo_atendimento", None)
+    
+    texto = "❌ Atendimento cancelado. Se precisar de algo, acesse o menu novamente!"
+    
+    if update.callback_query:
+        await update.callback_query.answer()
+        await update.callback_query.edit_message_text(texto)
+    elif update.message:
+        await update.message.reply_text(texto)
+    
+    return ConversationHandler.END
 
 
 # ==========================================
@@ -368,7 +406,6 @@ async def comando_responder_chamado(update: Update, context: ContextTypes.DEFAUL
     resposta = " ".join(context.args[1:])
     
     try:
-        # Obtém o chamado
         res = supabase.table("chamados_suporte").select("*").eq("id", chamado_id).execute()
         
         if not res.data:
@@ -378,10 +415,8 @@ async def comando_responder_chamado(update: Update, context: ContextTypes.DEFAUL
         chamado = res.data[0]
         chat_id_usuario = chamado["chat_id"]
         
-        # Atualiza o chamado
         await responder_chamado(chamado_id, resposta, user_id)
         
-        # Envia resposta ao usuário
         await context.bot.send_message(
             chat_id=chat_id_usuario,
             text=(
@@ -393,7 +428,6 @@ async def comando_responder_chamado(update: Update, context: ContextTypes.DEFAUL
             parse_mode="HTML"
         )
         
-        # Registra no histórico
         await registrar_historico(chat_id_usuario, "resposta_admin", resposta, "admin")
         
         await update.message.reply_text(f"✅ Resposta enviada ao usuário do chamado #{chamado_id}.")
@@ -430,6 +464,41 @@ async def callback_email_suporte(update: Update, context: ContextTypes.DEFAULT_T
 
 
 # ==========================================
+# FUNÇÕES AUXILIARES
+# ==========================================
+
+async def listar_chamados_abertos() -> list:
+    """Lista todos os chamados abertos para o administrador."""
+    try:
+        res = supabase.table("chamados_suporte").select("*").in_("status", ["aberto", "em_andamento"]).order("created_at", desc=True).execute()
+        return res.data if res.data else []
+        
+    except Exception as e:
+        logger.error(f"Erro ao listar chamados abertos: {e}")
+        return []
+
+
+async def responder_chamado(chamado_id: int, resposta_admin: str, atendente_id: str) -> bool:
+    """Registra a resposta do administrador e atualiza o chamado."""
+    try:
+        from datetime import datetime, timezone
+        agora = datetime.now(timezone.utc).isoformat()
+        
+        supabase.table("chamados_suporte").update({
+            "status": "respondido",
+            "resposta_admin": resposta_admin,
+            "atendente_id": str(atendente_id),
+            "respondido_em": agora
+        }).eq("id", chamado_id).execute()
+        
+        return True
+        
+    except Exception as e:
+        logger.error(f"Erro ao responder chamado: {e}")
+        return False
+
+
+# ==========================================
 # EXPORTAÇÃO
 # ==========================================
 
@@ -443,6 +512,9 @@ __all__ = [
     "comando_ver_chamados",
     "comando_responder_chamado",
     "cancelar_atendimento",
+<<<<<<< HEAD
     "callback_email_suporte",
+=======
+>>>>>>> aedeb728e48f5b90f5e6adedef7dceb7bd1ea22e
     "AGUARDANDO_MENSAGEM_CHAMADO"
 ]
