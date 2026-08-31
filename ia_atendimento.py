@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 
 # Modelo a ser usado (você pode trocar por outro disponível no OpenRouter)
-MODELO_IA = "openai/gpt-4o-mini"
+MODELO_IA = "openrouter/free"
 
 async def gerar_resposta_ia(mensagem_usuario: str, contexto: dict = None) -> str | None:
     """
