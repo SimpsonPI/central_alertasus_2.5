@@ -66,13 +66,17 @@ async def gerar_resposta_ia(mensagem_usuario: str, contexto: dict = None) -> str
             )
 
         # Verifica se a resposta foi bem-sucedida
-        if response.status_code == 200:
+                if response.status_code == 200:
             data = response.json()
             resposta = data["choices"][0]["message"]["content"]
             return resposta.strip()
         else:
             logger.error(f"Erro na API do OpenRouter: {response.status_code} - {response.text}")
             return None
+
+    except Exception as e:
+        logger.error(f"Erro ao chamar OpenRouter: {e}")
+        return None
 
     except Exception as e:
         logger.error(f"Erro ao chamar OpenRouter: {e}")
