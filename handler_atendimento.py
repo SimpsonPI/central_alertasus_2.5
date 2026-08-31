@@ -45,7 +45,7 @@ async def menu_atendimento(update: Update, context: ContextTypes.DEFAULT_TYPE):
             InlineKeyboardButton("👤 Atendimento Humanizado", callback_data="atendimento_humanizado")
         ],
         [
-            InlineKeyboardButton("📧 Email de Suporte", url="mailto:suportealertasus@gmail.com")
+            [InlineKeyboardButton("📧 Email de Suporte", callback_data="atendimento_email")]
         ],
         [InlineKeyboardButton("⬅️ Voltar ao Menu Principal", callback_data="iniciar")]
     ])
