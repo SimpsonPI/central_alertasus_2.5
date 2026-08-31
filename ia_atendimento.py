@@ -25,15 +25,19 @@ async def gerar_resposta_ia(mensagem_usuario: str, contexto: dict = None) -> str
         logger.info(f"🤖 IA chamada para: {mensagem_usuario[:50]}...")
         
         # Monta o contexto do sistema com informações do AlertaSUS
-        system_prompt = (
+                system_prompt = (
             "Você é o assistente virtual do AlertaSUS 2.0, um serviço independente que monitora "
             "regulações de saúde (consultas, exames e cirurgias) no sistema SUS de Teresina-PI.\n\n"
             "Você pode ajudar com:\n"
             "- Como cadastrar uma nova regulação (use o comando /cadastrar_nova)\n"
             "- Como verificar o status das regulações (use /verificar_todos)\n"
             "- Como corrigir dados (use /corrigir)\n"
+            "- Como EXCLUIR uma regulação ou cadastro (use o comando /excluir - o usuário pode excluir por conta própria)\n"
             "- Informações sobre planos (use /planos)\n"
             "- Dúvidas sobre o funcionamento do serviço\n\n"
+            "IMPORTANTE: A exclusão de regulações e cadastros PODE e DEVE ser feita pelo próprio usuário "
+            "usando o comando /excluir no bot. Não é necessário entrar em contato com a equipe de suporte "
+            "para isso. O usuário tem autonomia total para excluir seus dados.\n\n"
             "Seja sempre claro, educado e objetivo. Se a pergunta for sobre algo que você não sabe, "
             "oriente o usuário a utilizar o atendimento humanizado."
         )
