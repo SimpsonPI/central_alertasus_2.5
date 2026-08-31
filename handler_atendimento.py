@@ -496,7 +496,86 @@ async def responder_chamado(chamado_id: int, resposta_admin: str, atendente_id: 
         logger.error(f"Erro ao responder chamado: {e}")
         return False
 
+# ==========================================
+# RESPOSTAS DO FAQ
+# ==========================================
 
+async def faq_cadastrar(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Resposta para Como cadastrar uma regulação."""
+    query = update.callback_query
+    await query.answer()
+    texto = (
+        "📌 <b>Como cadastrar uma nova regulação?</b>\n\n"
+        "• Utilize o comando <b>/cadastrar_nova</b> no menu do bot.\n"
+        "• Digite o número do seu <b>Cartão SUS</b> (15 dígitos) ou o <b>ID da Regulação</b>.\n"
+        "• Siga as instruções na tela até a confirmação do cadastro."
+    )
+    teclado = InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Voltar", callback_data="atendimento_faq")]])
+    await query.edit_message_text(texto, parse_mode="HTML", reply_markup=teclado)
+
+
+async def faq_consultar(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Resposta para Como consultar minhas regulações."""
+    query = update.callback_query
+    await query.answer()
+    texto = (
+        "🔍 <b>Como consultar minhas regulações?</b>\n\n"
+        "• Para ver todas as suas regulações: digite <b>/verificar_todos</b>.\n"
+        "• Para consultar uma regulação específica: digite <b>/verificar_especifico</b>."
+    )
+    teclado = InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Voltar", callback_data="atendimento_faq")]])
+    await query.edit_message_text(texto, parse_mode="HTML", reply_markup=teclado)
+
+
+async def faq_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Resposta para Onde encontrar o Cartão SUS ou ID."""
+    query = update.callback_query
+    await query.answer()
+    texto = (
+        "🆔 <b>Onde encontrar o Cartão SUS ou ID da Regulação?</b>\n\n"
+        "• <b>Cartão SUS:</b> O número possui 15 dígitos e pode ser encontrado no seu cartão impresso ou no aplicativo 'Meu SUS Digital'.\n"
+        "• <b>ID da Regulação:</b> É o código fornecido pelo posto de saúde ou hospital no momento da solicitação."
+    )
+    teclado = InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Voltar", callback_data="atendimento_faq")]])
+    await query.edit_message_text(texto, parse_mode="HTML", reply_markup=teclado)
+
+
+async def faq_alterar(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Resposta para Como alterar meus dados."""
+    query = update.callback_query
+    await query.answer()
+    texto = (
+        "✏️ <b>Como alterar ou corrigir dados?</b>\n\n"
+        "• Para alterar informações de uma regulação já cadastrada, utilize o comando <b>/corrigir</b> no menu principal."
+    )
+    teclado = InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Voltar", callback_data="atendimento_faq")]])
+    await query.edit_message_text(texto, parse_mode="HTML", reply_markup=teclado)
+
+
+async def faq_planos(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Resposta para Planos e Assinaturas."""
+    query = update.callback_query
+    await query.answer()
+    texto = (
+        "💳 <b>Planos e Assinaturas</b>\n\n"
+        "• Para verificar seus planos ativos, renovar ou fazer upgrade, acesse o comando <b>/planos</b> no menu principal."
+    )
+    teclado = InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Voltar", callback_data="atendimento_faq")]])
+    await query.edit_message_text(texto, parse_mode="HTML", reply_markup=teclado)
+
+
+async def faq_governo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Resposta para O AlertaSUS tem vínculo com o governo."""
+    query = update.callback_query
+    await query.answer()
+    texto = (
+        "⚠️ <b>O AlertaSUS tem vínculo com o governo?</b>\n\n"
+        "Não. O AlertaSUS é uma ferramenta <b>independente</b> e não possui vínculo oficial com a Prefeitura de Teresina, FMS ou SUS.\n"
+        "As informações são baseadas nos dados públicos dos portais de regulação."
+    )
+    teclado = InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Voltar", callback_data="atendimento_faq")]])
+    await query.edit_message_text(texto, parse_mode="HTML", reply_markup=teclado)
+    
 # ==========================================
 # EXPORTAÇÃO
 # ==========================================
