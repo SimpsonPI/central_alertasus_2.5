@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 # Obtém a chave da API do ambiente
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 
-# Modelo a ser usado (você pode trocar por outro disponível no OpenRouter)
+# Modelo a ser usado (gratuito e automático)
 MODELO_IA = "openrouter/free"
 
 async def gerar_resposta_ia(mensagem_usuario: str, contexto: dict = None) -> str | None:
@@ -21,12 +21,9 @@ async def gerar_resposta_ia(mensagem_usuario: str, contexto: dict = None) -> str
         return None
 
     try:
+        # LOG PARA DIAGNÓSTICO
         logger.info(f"🤖 IA chamada para: {mensagem_usuario[:50]}...")
         
-        # Monta o contexto do sistema com informações do AlertaSUS
-        system_prompt = (
-            "Você é o assistente virtual do AlertaSUS 2.0..."
-        )
         # Monta o contexto do sistema com informações do AlertaSUS
         system_prompt = (
             "Você é o assistente virtual do AlertaSUS 2.0, um serviço independente que monitora "
@@ -66,17 +63,17 @@ async def gerar_resposta_ia(mensagem_usuario: str, contexto: dict = None) -> str
             )
 
         # Verifica se a resposta foi bem-sucedida
-                if response.status_code == 200:
+        if response.status_code == 200:
             data = response.json()
             resposta = data["choices"][0]["message"]["content"]
+            
+            # LOG PARA DIAGNÓSTICO
+            logger.info(f"🤖 IA respondeu: {resposta[:50]}...")
+            
             return resposta.strip()
         else:
             logger.error(f"Erro na API do OpenRouter: {response.status_code} - {response.text}")
             return None
-
-    except Exception as e:
-        logger.error(f"Erro ao chamar OpenRouter: {e}")
-        return None
 
     except Exception as e:
         logger.error(f"Erro ao chamar OpenRouter: {e}")
