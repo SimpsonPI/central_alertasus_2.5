@@ -591,5 +591,11 @@ __all__ = [
     "comando_responder_chamado",
     "cancelar_atendimento",
     "callback_email_suporte",
+    "faq_cadastrar",
+    "faq_consultar",
+    "faq_id",
+    "faq_alterar",
+    "faq_planos",
+    "faq_governo",
     "AGUARDANDO_MENSAGEM_CHAMADO"
 ]
