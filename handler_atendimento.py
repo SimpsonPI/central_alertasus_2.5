@@ -584,6 +584,66 @@ async def faq_governo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     teclado = InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Voltar", callback_data="atendimento_faq")]])
     await query.edit_message_text(texto, parse_mode="HTML", reply_markup=teclado)
+
+# ==========================================
+# PROCESSAR MENSAGEM GERAL (SEM CLICAR NO FAQ)
+# ==========================================
+
+async def processar_mensagem_geral(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Processa qualquer mensagem enviada pelo usuário e tenta responder com IA."""
+    if not update.message or not update.message.text:
+        return
+    
+    texto_usuario = update.message.text
+    
+    # Ignora comandos (ex: /start, /planos, etc.)
+    if texto_usuario.startswith("/"):
+        return
+    
+    # Verifica se o usuário está em um fluxo específico (cadastro, correção, etc.)
+    if context.user_data.get("modo_atendimento") == "humanizado":
+        return  # Não interfere no atendimento humanizado
+    
+    # Tenta responder com IA
+    resposta_ia = await gerar_resposta_ia(texto_usuario, {"nome_usuario": update.effective_user.first_name})
+    
+    if resposta_ia:
+        # Registra no histórico
+        await registrar_historico(
+            chat_id=str(update.effective_user.id),
+            tipo="ia_automatica",
+            mensagem=texto_usuario,
+            origem="bot"
+        )
+        
+        # Envia a resposta da IA
+        await update.message.reply_text(resposta_ia, parse_mode="HTML")
+        
+        # Oferece opções adicionais
+        teclado = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("❓ FAQ Automático", callback_data="atendimento_faq"),
+                InlineKeyboardButton("👤 Atendimento Humanizado", callback_data="atendimento_humanizado")
+            ],
+            [InlineKeyboardButton("📧 Email de Suporte", callback_data="atendimento_email")]
+        ])
+        
+        await update.message.reply_text(
+            "Posso ajudar com mais alguma coisa? Selecione uma opção abaixo:",
+            reply_markup=teclado
+        )
+    else:
+        # Se a IA não responder, oferece o menu
+        await update.message.reply_text(
+            "🤖 Olá! Como posso ajudar você hoje?",
+            reply_markup=InlineKeyboardMarkup([
+                [
+                    InlineKeyboardButton("❓ FAQ Automático", callback_data="atendimento_faq"),
+                    InlineKeyboardButton("👤 Atendimento Humanizado", callback_data="atendimento_humanizado")
+                ],
+                [InlineKeyboardButton("📧 Email de Suporte", callback_data="atendimento_email")]
+            ])
+        )
     
 # ==========================================
 # EXPORTAÇÃO
@@ -600,11 +660,6 @@ __all__ = [
     "comando_responder_chamado",
     "cancelar_atendimento",
     "callback_email_suporte",
-    "faq_cadastrar",
-    "faq_consultar",
-    "faq_id",
-    "faq_alterar",
-    "faq_planos",
-    "faq_governo",
+    "processar_mensagem_geral",  # <-- ADICIONE ESTA LINHA
     "AGUARDANDO_MENSAGEM_CHAMADO"
 ]
