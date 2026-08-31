@@ -1,9 +1,19 @@
 # database_atendimento.py
+import os
 import logging
 from datetime import datetime, timezone
-from database import supabase
+from supabase import create_client, Client
 
 logger = logging.getLogger(__name__)
+
+# Conexão direta com o Supabase
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+
+if not SUPABASE_URL or not SUPABASE_KEY:
+    raise ValueError("As variáveis SUPABASE_URL e SUPABASE_KEY precisam estar configuradas no .env")
+
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # ==========================================
 # FUNÇÕES PARA FAQ AUTOMATIZADO
@@ -12,16 +22,13 @@ logger = logging.getLogger(__name__)
 async def buscar_faq_por_palavras_chave(texto_usuario: str) -> dict | None:
     """Busca no banco de dados uma resposta do FAQ baseada nas palavras-chave."""
     try:
-        # Normaliza o texto do usuário
         texto_normalizado = texto_usuario.lower().strip()
         
-        # Busca todas as FAQs ativas
         res = supabase.table("faq_perguntas").select("*").eq("ativo", True).execute()
         
         if not res.data:
             return None
         
-        # Verifica qual FAQ melhor corresponde ao texto do usuário
         melhor_match = None
         melhor_pontuacao = 0
         
@@ -33,7 +40,6 @@ async def buscar_faq_por_palavras_chave(texto_usuario: str) -> dict | None:
                 if palavra.lower() in texto_normalizado:
                     pontuacao += 1
             
-            # Verifica também se a pergunta está contida no texto
             if faq.get("pergunta", "").lower() in texto_normalizado:
                 pontuacao += 3
             
