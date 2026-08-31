@@ -21,6 +21,12 @@ async def gerar_resposta_ia(mensagem_usuario: str, contexto: dict = None) -> str
         return None
 
     try:
+        logger.info(f"🤖 IA chamada para: {mensagem_usuario[:50]}...")
+        
+        # Monta o contexto do sistema com informações do AlertaSUS
+        system_prompt = (
+            "Você é o assistente virtual do AlertaSUS 2.0..."
+        )
         # Monta o contexto do sistema com informações do AlertaSUS
         system_prompt = (
             "Você é o assistente virtual do AlertaSUS 2.0, um serviço independente que monitora "
