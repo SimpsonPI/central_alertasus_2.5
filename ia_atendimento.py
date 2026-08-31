@@ -1,8 +1,7 @@
 # ia_atendimento.py
 import os
 import logging
-import asyncio
-from openrouter import OpenRouter
+import httpx
 
 logger = logging.getLogger(__name__)
 
@@ -10,7 +9,7 @@ logger = logging.getLogger(__name__)
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 
 # Modelo a ser usado (você pode trocar por outro disponível no OpenRouter)
-MODELO_IA = "google/gemini-3.1-flash-lite"  # Modelo leve e rápido (gratuito ou barato)
+MODELO_IA = "openai/gpt-4o-mini"
 
 async def gerar_resposta_ia(mensagem_usuario: str, contexto: dict = None) -> str | None:
     """
@@ -45,19 +44,29 @@ async def gerar_resposta_ia(mensagem_usuario: str, contexto: dict = None) -> str
         
         messages.append({"role": "user", "content": mensagem_usuario})
 
-        # Usa o SDK do OpenRouter (síncrono, mas chamado em thread para não bloquear)
-        def chamar_api():
-            with OpenRouter(api_key=OPENROUTER_API_KEY) as client:
-                response = client.chat.send(
-                    model=MODELO_IA,
-                    messages=messages,
-                    stream=False
-                )
-                return response.choices[0].message.content
+        # Faz a chamada direta à API do OpenRouter usando httpx
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": MODELO_IA,
+                    "messages": messages,
+                    "stream": False
+                }
+            )
 
-        # Executa a chamada em thread separada para não bloquear o bot
-        resposta = await asyncio.to_thread(chamar_api)
-        return resposta.strip()
+        # Verifica se a resposta foi bem-sucedida
+        if response.status_code == 200:
+            data = response.json()
+            resposta = data["choices"][0]["message"]["content"]
+            return resposta.strip()
+        else:
+            logger.error(f"Erro na API do OpenRouter: {response.status_code} - {response.text}")
+            return None
 
     except Exception as e:
         logger.error(f"Erro ao chamar OpenRouter: {e}")
