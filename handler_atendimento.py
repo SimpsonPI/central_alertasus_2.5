@@ -2,6 +2,7 @@
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, ConversationHandler
+from ia_atendimento import gerar_resposta_ia
 
 from database_atendimento import (
     buscar_faq_por_palavras_chave,
@@ -127,7 +128,7 @@ async def iniciar_faq(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def processar_pergunta_faq(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Processa a pergunta do usuário e tenta responder via FAQ automático."""
+    """Processa a pergunta do usuário e tenta responder via FAQ ou IA."""
     if not update.message or not update.message.text:
         return
     
@@ -139,8 +140,16 @@ async def processar_pergunta_faq(update: Update, context: ContextTypes.DEFAULT_T
     if texto_usuario.startswith("/"):
         return
     
+    # 1. Primeiro tenta encontrar resposta no FAQ estático
     resposta_faq = await buscar_faq_por_palavras_chave(texto_usuario)
     
+    # 2. Se não encontrou no FAQ, tenta usar a IA
+    if not resposta_faq:
+        resposta_ia = await gerar_resposta_ia(texto_usuario, {"nome_usuario": update.effective_user.first_name})
+        if resposta_ia:
+            resposta_faq = {"resposta": resposta_ia}
+    
+    # 3. Se encontrou resposta (FAQ ou IA), envia
     if resposta_faq:
         await registrar_historico(
             chat_id=str(update.effective_user.id),
@@ -164,6 +173,7 @@ async def processar_pergunta_faq(update: Update, context: ContextTypes.DEFAULT_T
             reply_markup=teclado
         )
     else:
+        # 4. Se nem FAQ nem IA responderam, direciona para atendimento humanizado
         await update.message.reply_text(
             "🤔 Não encontrei uma resposta automática para sua pergunta.\n\n"
             "Vou direcionar você para nosso atendimento humanizado para que possamos ajudar melhor!"

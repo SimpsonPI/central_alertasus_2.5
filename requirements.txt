@@ -7,3 +7,5 @@ mercadopago
 streamlit
 starlette<1.4.0
 pandas
+openrouteropenrouter
+openrouter
