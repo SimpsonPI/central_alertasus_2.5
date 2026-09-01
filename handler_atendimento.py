@@ -591,35 +591,54 @@ async def faq_governo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ==========================================
 
 async def processar_mensagem_geral(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Processa qualquer mensagem enviada pelo usuário e tenta responder com IA."""
+    """Processa qualquer mensagem enviada pelo usuário e tenta responder com IA (usando contexto)."""
     if not update.message or not update.message.text:
         return
-    
+
     texto_usuario = update.message.text
-    
-    # Ignora comandos (ex: /start, /planos, etc.)
+
+    # Ignora comandos (ex: /start, /planos)
     if texto_usuario.startswith("/"):
         return
-    
+
     # Verifica se o usuário está em um fluxo específico (cadastro, correção, etc.)
     if context.user_data.get("modo_atendimento") == "humanizado":
         return  # Não interfere no atendimento humanizado
-    
-    # Tenta responder com IA
-    resposta_ia = await gerar_resposta_ia(texto_usuario, {"nome_usuario": update.effective_user.first_name})
-    
-    if resposta_ia:
-        # Registra no histórico
+
+    # 1. Busca contexto do usuário no Supabase
+    chat_id = str(update.effective_user.id)
+    contexto_usuario = await buscar_contexto_usuario(chat_id)
+
+    # 2. Tenta encontrar resposta no FAQ estático
+    resposta_faq = await buscar_faq_por_palavras_chave(texto_usuario)
+
+    # 3. Se não encontrou no FAQ, tenta usar a IA com contexto
+    if not resposta_faq:
+        resposta_ia = await gerar_resposta_ia(
+            texto_usuario,
+            {
+                "nome_usuario": update.effective_user.first_name,
+                "chat_id": chat_id,
+                "contexto_usuario": contexto_usuario  # <-- PASSA O CONTEXTO
+            }
+        )
+        if resposta_ia:
+            resposta_faq = {"resposta": resposta_ia}
+
+    # 4. Se encontrou resposta (FAQ ou IA), envia
+    if resposta_faq:
         await registrar_historico(
-            chat_id=str(update.effective_user.id),
+            chat_id=chat_id,
             tipo="ia_automatica",
             mensagem=texto_usuario,
             origem="bot"
         )
-        
-        # Envia a resposta da IA
-        await update.message.reply_text(resposta_ia, parse_mode="HTML")
-        
+
+        await update.message.reply_text(
+            resposta_faq["resposta"],
+            parse_mode="HTML"
+        )
+
         # Oferece opções adicionais
         teclado = InlineKeyboardMarkup([
             [
@@ -628,24 +647,19 @@ async def processar_mensagem_geral(update: Update, context: ContextTypes.DEFAULT
             ],
             [InlineKeyboardButton("📧 Email de Suporte", callback_data="atendimento_email")]
         ])
-        
+
         await update.message.reply_text(
             "Posso ajudar com mais alguma coisa? Selecione uma opção abaixo:",
             reply_markup=teclado
         )
     else:
-        # Se a IA não responder, oferece o menu
+        # 5. Se nem FAQ nem IA responderam, direciona para atendimento humanizado
         await update.message.reply_text(
-            "🤖 Olá! Como posso ajudar você hoje?",
-            reply_markup=InlineKeyboardMarkup([
-                [
-                    InlineKeyboardButton("❓ FAQ Automático", callback_data="atendimento_faq"),
-                    InlineKeyboardButton("👤 Atendimento Humanizado", callback_data="atendimento_humanizado")
-                ],
-                [InlineKeyboardButton("📧 Email de Suporte", callback_data="atendimento_email")]
-            ])
+            "🤔 Não encontrei uma resposta automática para sua pergunta.\n\n"
+            "Vou direcionar você para nosso atendimento humanizado para que possamos ajudar melhor!"
         )
-    
+
+        await iniciar_atendimento_humanizado(update, context, mensagem_inicial=texto_usuario)    
 # ==========================================
 # EXPORTAÇÃO
 # ==========================================
