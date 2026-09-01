@@ -9,8 +9,19 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 # Modelo gratuito e automático
 MODELO_IA = "openrouter/free"
 
+import os
+import logging
+import httpx
+
+logger = logging.getLogger(__name__)
+
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
+
+# Modelo gratuito e automático
+MODELO_IA = "openrouter/free"
+
 async def gerar_resposta_ia(mensagem_usuario: str, contexto: dict = None) -> str | None:
-    """Envia a mensagem para o OpenRouter e retorna a resposta da IA."""
+    """Envia a mensagem para o OpenRouter e retorna a resposta da IA, usando contexto do usuário."""
     if not OPENROUTER_API_KEY:
         logger.warning("OPENROUTER_API_KEY não configurada. IA desativada.")
         return None
@@ -18,6 +29,30 @@ async def gerar_resposta_ia(mensagem_usuario: str, contexto: dict = None) -> str
     try:
         # LOG PARA DIAGNÓSTICO
         logger.info(f"🤖 IA chamada para: {mensagem_usuario[:50]}...")
+
+        # Estrutura o contexto do usuário para o prompt
+        contexto_info = ""
+        if contexto and contexto.get("contexto_usuario"):
+            dados = contexto["contexto_usuario"]
+
+            # Informações do plano
+            if dados.get("plano") and dados["plano"] != "nenhum":
+                contexto_info += f"O usuário possui o plano: {dados['plano']} (status: {dados.get('status')}).\n"
+                if dados.get("data_vencimento"):
+                    contexto_info += f"Vencimento do plano: {dados['data_vencimento']}.\n"
+            else:
+                contexto_info += "O usuário ainda não possui um plano ativo.\n"
+
+            if dados.get("usou_degustacao"):
+                contexto_info += "O usuário já utilizou o período de degustação.\n"
+
+            # Informações das regulações
+            if dados.get("regulacoes"):
+                contexto_info += "Regulações cadastradas:\n"
+                for reg in dados["regulacoes"]:
+                    contexto_info += f"  - ID: {reg.get('numero_reg')} | Procedimento: {reg.get('procedimento')} | Status: {reg.get('status_anterior')}\n"
+            else:
+                contexto_info += "O usuário não possui regulações cadastradas.\n"
 
         # SISTEMA PROMPT - CONTROLE TOTAL DO COMPORTAMENTO DA IA
         system_prompt = (
@@ -60,6 +95,14 @@ async def gerar_resposta_ia(mensagem_usuario: str, contexto: dict = None) -> str
             "• Responda de forma amigável e objetiva.\n"
             "• Se não souber responder, oriente a usar o atendimento humanizado."
         )
+
+        # Adiciona as informações do usuário ao prompt do sistema
+        if contexto_info:
+            system_prompt += (
+                "\n\nINFORMAÇÕES DO USUÁRIO (dados reais do sistema):\n"
+                f"{contexto_info}"
+                "Use essas informações para personalizar sua resposta."
+            )
 
         messages = [{"role": "system", "content": system_prompt}]
         if contexto and contexto.get("nome_usuario"):
