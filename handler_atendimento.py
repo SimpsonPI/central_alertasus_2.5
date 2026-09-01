@@ -9,8 +9,8 @@ from database_atendimento import (
     registrar_chamado_suporte,
     adicionar_mensagem_fila,
     registrar_historico,
-    obter_email_suporte
-    buscar_contexto_usuario,
+    obter_email_suporte,
+    buscar_contexto_usuario,  # <-- Corrigido
 )
 from database import supabase
 
