@@ -10,6 +10,7 @@ from database_atendimento import (
     adicionar_mensagem_fila,
     registrar_historico,
     obter_email_suporte
+    buscar_contexto_usuario,
 )
 from database import supabase
 
@@ -118,59 +119,67 @@ async def iniciar_faq(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def processar_pergunta_faq(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Processa a pergunta do usuário e tenta responder via FAQ ou IA."""
+    """Processa a pergunta do usuário e tenta responder via FAQ ou IA (com contexto)."""
     if not update.message or not update.message.text:
         return
-    
-    if context.user_data.get("modo_atendimento") != "faq":
-        return
-    
+
+    # 🔓 REMOVIDO: verificação de modo_atendimento (agora funciona em qualquer mensagem)
     texto_usuario = update.message.text
-    
+
     if texto_usuario.startswith("/"):
         return
-    
-    # 1. Primeiro tenta encontrar resposta no FAQ estático
+
+    # 1. Busca contexto do usuário no Supabase
+    chat_id = str(update.effective_user.id)
+    contexto_usuario = await buscar_contexto_usuario(chat_id)
+
+    # 2. Primeiro tenta encontrar resposta no FAQ estático
     resposta_faq = await buscar_faq_por_palavras_chave(texto_usuario)
-    
-    # 2. Se não encontrou no FAQ, tenta usar a IA
+
+    # 3. Se não encontrou no FAQ, tenta usar a IA com contexto
     if not resposta_faq:
-        resposta_ia = await gerar_resposta_ia(texto_usuario, {"nome_usuario": update.effective_user.first_name})
+        resposta_ia = await gerar_resposta_ia(
+            texto_usuario,
+            {
+                "nome_usuario": update.effective_user.first_name,
+                "chat_id": chat_id,
+                "contexto_usuario": contexto_usuario  # <-- PASSA O CONTEXTO
+            }
+        )
         if resposta_ia:
             resposta_faq = {"resposta": resposta_ia}
-    
-    # 3. Se encontrou resposta (FAQ ou IA), envia
+
+    # 4. Se encontrou resposta (FAQ ou IA), envia
     if resposta_faq:
         await registrar_historico(
-            chat_id=str(update.effective_user.id),
+            chat_id=chat_id,
             tipo="faq_automatico",
             mensagem=texto_usuario,
             origem="bot"
         )
-        
+
         await update.message.reply_text(
             resposta_faq["resposta"],
             parse_mode="HTML"
         )
-        
+
         teclado = InlineKeyboardMarkup([
             [InlineKeyboardButton("👤 Falar com Atendente", callback_data="atendimento_humanizado")],
             [InlineKeyboardButton("❓ Outra pergunta", callback_data="atendimento_faq")]
         ])
-        
+
         await update.message.reply_text(
             "Sua dúvida foi respondida? Se precisar de mais ajuda, fale com nossa equipe!",
             reply_markup=teclado
         )
     else:
-        # 4. Se nem FAQ nem IA responderam, direciona para atendimento humanizado
+        # 5. Se nem FAQ nem IA responderam, direciona para atendimento humanizado
         await update.message.reply_text(
             "🤔 Não encontrei uma resposta automática para sua pergunta.\n\n"
             "Vou direcionar você para nosso atendimento humanizado para que possamos ajudar melhor!"
         )
-        
-        await iniciar_atendimento_humanizado(update, context, mensagem_inicial=texto_usuario)
 
+        await iniciar_atendimento_humanizado(update, context, mensagem_inicial=texto_usuario)
 # ==========================================
 # ATENDIMENTO HUMANIZADO
 # ==========================================
