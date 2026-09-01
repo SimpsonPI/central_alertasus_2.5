@@ -219,26 +219,27 @@ async def iniciar_atendimento_humanizado(update: Update, context: ContextTypes.D
 
 async def processar_mensagem_humanizado(update: Update, context: ContextTypes.DEFAULT_TYPE, mensagem_texto: str = None):
     """Processa a mensagem do usuário no atendimento humanizado."""
-    
     if context.user_data.get("modo_atendimento") != "humanizado":
         return
-    
+
     mensagem = mensagem_texto or (update.message.text if update.message else None)
-    
     if not mensagem:
         return
-    
+
     user = update.effective_user
     chat_id = str(user.id)
     nome_usuario = f"{user.first_name} {user.last_name or ''}".strip() or "Usuário"
-    
+
     chamado_id = await registrar_chamado_suporte(chat_id, nome_usuario, mensagem)
-    
+
     if chamado_id:
+        # Adiciona mensagem à fila
         await adicionar_mensagem_fila(chamado_id, chat_id, mensagem, "usuario")
-        
+
+        # Registra no histórico
         await registrar_historico(chat_id, "atendimento_humanizado", mensagem, "usuario")
-        
+
+        # Notifica o administrador
         try:
             await context.bot.send_message(
                 chat_id=ADMIN_ID,
@@ -254,7 +255,8 @@ async def processar_mensagem_humanizado(update: Update, context: ContextTypes.DE
             )
         except Exception as e:
             logger.error(f"Erro ao notificar admin: {e}")
-        
+
+        # Confirma ao usuário
         if update.message:
             await update.message.reply_text(
                 "✅ <b>Mensagem recebida com sucesso!</b>\n\n"
@@ -264,26 +266,28 @@ async def processar_mensagem_humanizado(update: Update, context: ContextTypes.DE
                 "📧 Para contato direto, utilize nosso email: suportealertasus@gmail.com",
                 parse_mode="HTML"
             )
-        
+
+        # Oferece opções
         teclado = InlineKeyboardMarkup([
             [InlineKeyboardButton("📋 Ver Meus Chamados", callback_data="ver_chamados")],
             [InlineKeyboardButton("⬅️ Voltar ao Menu", callback_data="iniciar")]
         ])
-        
+
         if update.message:
             await update.message.reply_text(
                 "O que deseja fazer agora?",
                 reply_markup=teclado
             )
     else:
+        # Se falhar ao registrar
+        logger.error(f"FALHA ao registrar chamado para {chat_id} - mensagem: {mensagem}")
         if update.message:
             await update.message.reply_text(
                 "❌ Ocorreu um erro ao registrar seu chamado.\n"
                 "Por favor, tente novamente ou contate: suportealertasus@gmail.com"
             )
-    
-    return ConversationHandler.END
 
+    return ConversationHandler.END
 
 # ==========================================
 # CANCELAR ATENDIMENTO
