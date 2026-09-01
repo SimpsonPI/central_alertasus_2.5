@@ -20,8 +20,24 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 # Modelo gratuito e automático
 MODELO_IA = "openrouter/free"
 
+async def obter_conhecimento_github() -> str:
+    """Busca o conteúdo do arquivo conhecimento.md no GitHub."""
+    url = "https://raw.githubusercontent.com/SimpsonPI/central_alertasus_2.5/main/conhecimento.md"
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(url)
+            if response.status_code == 200:
+                return response.text
+            else:
+                logger.warning(f"Erro ao buscar conhecimento: {response.status_code}")
+                return ""
+    except Exception as e:
+        logger.error(f"Erro ao buscar conhecimento: {e}")
+        return ""
+
+
 async def gerar_resposta_ia(mensagem_usuario: str, contexto: dict = None) -> str | None:
-    """Envia a mensagem para o OpenRouter e retorna a resposta da IA, usando contexto do usuário."""
+    """Envia a mensagem para o OpenRouter e retorna a resposta da IA, usando contexto do usuário e conhecimento do GitHub."""
     if not OPENROUTER_API_KEY:
         logger.warning("OPENROUTER_API_KEY não configurada. IA desativada.")
         return None
@@ -30,7 +46,10 @@ async def gerar_resposta_ia(mensagem_usuario: str, contexto: dict = None) -> str
         # LOG PARA DIAGNÓSTICO
         logger.info(f"🤖 IA chamada para: {mensagem_usuario[:50]}...")
 
-        # Estrutura o contexto do usuário para o prompt
+        # 1. Busca o conhecimento do GitHub (conhecimento.md)
+        conhecimento = await obter_conhecimento_github()
+
+        # 2. Estrutura o contexto do usuário para o prompt
         contexto_info = ""
         if contexto and contexto.get("contexto_usuario"):
             dados = contexto["contexto_usuario"]
@@ -54,6 +73,51 @@ async def gerar_resposta_ia(mensagem_usuario: str, contexto: dict = None) -> str
             else:
                 contexto_info += "O usuário não possui regulações cadastradas.\n"
 
+        # 3. Monta o prompt do sistema com o conhecimento + contexto
+        system_prompt = (
+            "Você é o assistente virtual do AlertaSUS 2.0. Use SOMENTE as informações abaixo para responder.\n\n"
+            f"{conhecimento}\n\n"
+            "REGRAS:\n"
+            "1. Não invente informações.\n"
+            "2. Não pesquise na web.\n"
+            "3. Se não souber, oriente o usuário a usar o atendimento humanizado.\n"
+        )
+
+        # Adiciona o contexto do usuário ao prompt (se houver)
+        if contexto_info:
+            system_prompt += f"\n\nINFORMAÇÕES DO USUÁRIO:\n{contexto_info}"
+
+        messages = [{"role": "system", "content": system_prompt}]
+        if contexto and contexto.get("nome_usuario"):
+            messages.append({"role": "system", "content": f"O usuário se chama {contexto['nome_usuario']}."})
+        messages.append({"role": "user", "content": mensagem_usuario})
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": MODELO_IA,
+                    "messages": messages,
+                    "stream": False
+                }
+            )
+
+        if response.status_code == 200:
+            data = response.json()
+            resposta = data["choices"][0]["message"]["content"]
+            logger.info(f"🤖 IA respondeu: {resposta[:50]}...")
+            return resposta.strip()
+        else:
+            logger.error(f"Erro na API do OpenRouter: {response.status_code} - {response.text}")
+            return None
+
+    except Exception as e:
+        logger.error(f"Erro ao chamar OpenRouter: {e}")
+        return None
         # SISTEMA PROMPT - CONTROLE TOTAL DO COMPORTAMENTO DA IA
         system_prompt = (
             "Você é o assistente virtual oficial do AlertaSUS 2.0, um serviço independente "
