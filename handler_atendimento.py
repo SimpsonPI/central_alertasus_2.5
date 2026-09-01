@@ -29,32 +29,24 @@ AGUARDANDO_MENSAGEM_CHAMADO = 1
 # ==========================================
 
 async def menu_atendimento(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Exibe o menu principal de atendimento ao cliente."""
-    texto = (
-        "🤖 <b>Central de Atendimento AlertaSUS 2.0</b>\n\n"
-        "Olá! Como posso ajudar você hoje?\n\n"
-        "<b>Opções disponíveis:</b>\n"
-        "• ❓ <b>FAQ Automático:</b> Respostas instantâneas para dúvidas frequentes\n"
-        "• 👤 <b>Atendimento Humanizado:</b> Fale diretamente com nossa equipe\n"
-        "• 📧 <b>Email de Suporte:</b> suportealertasus@gmail.com\n\n"
-        "Selecione uma opção abaixo:"
-    )
-    
-    teclado = InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("❓ FAQ Automático", callback_data="atendimento_faq"),
-            InlineKeyboardButton("👤 Atendimento Humanizado", callback_data="atendimento_humanizado")
-        ],
-        [InlineKeyboardButton("📧 Email de Suporte", callback_data="atendimento_email")],
-        [InlineKeyboardButton("⬅️ Voltar ao Menu Principal", callback_data="iniciar")]
-    ])
-    
+    """Boas-vindas - já inicia a interação por texto com a IA."""
     if update.callback_query:
         await update.callback_query.answer()
-        await update.callback_query.edit_message_text(texto, parse_mode="HTML", reply_markup=teclado)
-    else:
-        await update.message.reply_text(texto, parse_mode="HTML", reply_markup=teclado)
-
+    
+    texto = (
+        "👋 Olá! Sou o assistente virtual do **AlertaSUS 2.0**.\n\n"
+        "Pode digitar sua dúvida abaixo que responderei imediatamente. 😊\n\n"
+        "Exemplos:\n"
+        "• Como cadastrar uma regulação?\n"
+        "• Como verificar o status?\n"
+        "• Quanto custa o plano trimestral?\n"
+    )
+    
+    # Envia apenas a mensagem, sem botões (para o usuário já digitar)
+    if update.message:
+        await update.message.reply_text(texto, parse_mode="Markdown")
+    elif update.callback_query:
+        await update.callback_query.edit_message_text(texto, parse_mode="Markdown")
 
 # ==========================================
 # FAQ AUTOMATIZADO
