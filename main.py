@@ -73,6 +73,8 @@ def main():
     # Callbacks
     app.add_handler(CallbackQueryHandler(menu_atendimento, pattern="^atendimento_menu$"))
     app.add_handler(CallbackQueryHandler(iniciar_faq, pattern="^atendimento_faq$"))
+    app.add_handler(CallbackQueryHandler(menu_atendimento, pattern="^atendimento_menu$"))
+    app.add_handler(CallbackQueryHandler(iniciar_faq, pattern="^atendimento_faq$"))
     app.add_handler(CallbackQueryHandler(iniciar_atendimento_humanizado, pattern="^atendimento_humanizado$"))
     app.add_handler(CallbackQueryHandler(ver_meus_chamados, pattern="^ver_chamados$"))
     app.add_handler(CallbackQueryHandler(callback_email_suporte, pattern="^atendimento_email$"))
