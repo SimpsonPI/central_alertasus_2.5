@@ -99,10 +99,11 @@ async def registrar_chamado_suporte(chat_id: str, nome_usuario: str, mensagem: s
     """Registra um novo chamado de suporte humanizado."""
     try:
         # Tenta inserir com campos mínimos (status e prioridade usam defaults do banco)
-        res = supabase.table("chamados_suporte").insert({
+                res = supabase.table("chamados_suporte").insert({
             "chat_id": str(chat_id),
             "nome_usuario": nome_usuario,
             "mensagem": mensagem,
+            # status e prioridade ficam com defaults do banco
         }).execute()
         
         if res.data:
