@@ -36,6 +36,22 @@ async def obter_conhecimento_github() -> str:
         return ""
 
 
+async def obter_conhecimento_github() -> str:
+    """Busca o conteúdo do arquivo conhecimento.md no GitHub."""
+    url = "https://raw.githubusercontent.com/SimpsonPI/central_alertasus_2.5/main/conhecimento.md"
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(url)
+            if response.status_code == 200:
+                return response.text
+            else:
+                logger.warning(f"Erro ao buscar conhecimento: {response.status_code}")
+                return ""
+    except Exception as e:
+        logger.error(f"Erro ao buscar conhecimento: {e}")
+        return ""
+
+
 async def gerar_resposta_ia(mensagem_usuario: str, contexto: dict = None) -> str | None:
     """Envia a mensagem para o OpenRouter e retorna a resposta da IA, usando contexto do usuário e conhecimento do GitHub."""
     if not OPENROUTER_API_KEY:
