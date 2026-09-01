@@ -206,6 +206,39 @@ def excluir_regulacao_db(num_reg: str):
 def desativar_regulacoes_por_chat_id(chat_id: int):
     """Desativa ou remove monitoramentos associados a um chat ID que bloqueou o bot."""
     try:
+
+async def buscar_contexto_usuario(chat_id: str) -> dict:
+    """
+    Busca informações do usuário no Supabase para fornecer contexto à IA.
+    Retorna um dicionário com dados de assinatura e regulações.
+    """
+    contexto = {}
+    try:
+        # Busca dados da assinatura
+        res_assinatura = supabase.table("assinaturas").select("*").eq("chat_id", str(chat_id)).execute()
+        if res_assinatura.data:
+            assinatura = res_assinatura.data[0]
+            contexto["plano"] = assinatura.get("tipo_plano")
+            contexto["status"] = assinatura.get("status")
+            contexto["data_vencimento"] = assinatura.get("data_vencimento")
+            contexto["limite_ids"] = assinatura.get("limite_ids")
+            contexto["usou_degustacao"] = assinatura.get("usou_degustacao", False)
+        else:
+            contexto["plano"] = "nenhum"
+            contexto["status"] = "novo"
+            contexto["usou_degustacao"] = False
+
+        # Busca regulações cadastradas
+        res_regulacoes = supabase.table("AlertaSUS_2.0").select("numero_reg", "procedimento", "status_anterior").eq("chat_id", str(chat_id)).execute()
+        if res_regulacoes.data:
+            contexto["regulacoes"] = res_regulacoes.data
+        else:
+            contexto["regulacoes"] = []
+
+        return contexto
+    except Exception as e:
+        logger.error(f"Erro ao buscar contexto do usuário {chat_id}: {e}")
+        return contexto
         res = supabase.table("AlertaSUS_2.0").update({"ativa": False}).eq("telegram_id", str(chat_id)).execute()
         return res.data
     except Exception as e:
