@@ -98,12 +98,11 @@ async def buscar_faq_por_palavras_chave(texto_usuario: str) -> dict | None:
 async def registrar_chamado_suporte(chat_id: str, nome_usuario: str, mensagem: str) -> int | None:
     """Registra um novo chamado de suporte humanizado."""
     try:
-        # Insere sem o campo 'prioridade' para evitar conflito com constraints
+        # Tenta inserir com campos mínimos (status e prioridade usam defaults do banco)
         res = supabase.table("chamados_suporte").insert({
             "chat_id": str(chat_id),
             "nome_usuario": nome_usuario,
             "mensagem": mensagem,
-            "status": "aberto"
         }).execute()
         
         if res.data:
@@ -114,6 +113,10 @@ async def registrar_chamado_suporte(chat_id: str, nome_usuario: str, mensagem: s
             logger.error(f"Resposta vazia ao registrar chamado para {chat_id}")
             return None
         
+    except Exception as e:
+        # Log detalhado para capturar o motivo real da falha
+        logger.error(f"Erro detalhado ao registrar chamado: {str(e)}")
+        return None        
     except Exception as e:
         logger.error(f"Erro ao registrar chamado: {e}")
         return None
