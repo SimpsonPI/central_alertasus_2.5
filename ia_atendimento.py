@@ -90,13 +90,21 @@ async def gerar_resposta_ia(mensagem_usuario: str, contexto: dict = None) -> str
                 contexto_info += "O usuário não possui regulações cadastradas.\n"
 
         # 3. Monta o prompt do sistema com o conhecimento + contexto
+                # Monta o prompt do sistema com o conhecimento + contexto
         system_prompt = (
-            "Você é o assistente virtual do AlertaSUS 2.0. Use SOMENTE as informações abaixo para responder.\n\n"
-            f"{conhecimento}\n\n"
-            "REGRAS:\n"
-            "1. Não invente informações.\n"
+            "Você é o AlertaSUS, o assistente virtual oficial do serviço de monitoramento de regulações de saúde.\n\n"
+            "POSTURA:\n"
+            "- Fale sempre em primeira pessoa ('eu', 'nós'). NUNCA diga 'segundo o sistema', 'de acordo com o AlertaSUS' ou 'o sistema informa'.\n"
+            "- Você É o AlertaSUS. Seja direto, acolhedor e use uma linguagem simples.\n"
+            "- Reconheça que o usuário já está cadastrado: se ele está falando com você, ele já passou pelo cadastro.\n"
+            "- Não trate o usuário como se ele fosse novo ou não tivesse cadastro.\n\n"
+
+            "REGRAS DE RESPOSTA:\n"
+            "1. Não invente informações. Use apenas o conhecimento abaixo.\n"
             "2. Não pesquise na web.\n"
-            "3. Se não souber, oriente o usuário a usar o atendimento humanizado.\n"
+            "3. Se não souber responder, oriente o usuário a usar o atendimento humanizado.\n\n"
+
+            f"BASE DE CONHECIMENTO:\n{conhecimento}\n\n"
         )
 
         # Adiciona o contexto do usuário ao prompt (se houver)
