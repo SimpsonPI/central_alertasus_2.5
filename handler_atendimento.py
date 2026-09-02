@@ -600,6 +600,7 @@ async def processar_mensagem_geral(update: Update, context: ContextTypes.DEFAULT
         return
 
     texto_usuario = update.message.text
+    logger.info(f"📩 Mensagem recebida: {texto_usuario}")
 
     # Ignora comandos (ex: /start, /planos)
     if texto_usuario.startswith("/"):
@@ -623,7 +624,7 @@ async def processar_mensagem_geral(update: Update, context: ContextTypes.DEFAULT
             {
                 "nome_usuario": update.effective_user.first_name,
                 "chat_id": chat_id,
-                "contexto_usuario": contexto_usuario  # <-- PASSA O CONTEXTO
+                "contexto_usuario": contexto_usuario
             }
         )
         if resposta_ia:
@@ -647,7 +648,7 @@ async def processar_mensagem_geral(update: Update, context: ContextTypes.DEFAULT
         teclado = InlineKeyboardMarkup([
             [
                 InlineKeyboardButton("❓ FAQ Automático", callback_data="atendimento_faq"),
-                InlineKeyboardButton("👤 Atendimento Humanizado", callback_data="atendimento_humanizado")
+                InlineKeyboardButton("👤 Falar com Atendente", callback_data="atendimento_humanizado")
             ],
             [InlineKeyboardButton("📧 Email de Suporte", callback_data="atendimento_email")]
         ])
@@ -657,14 +658,22 @@ async def processar_mensagem_geral(update: Update, context: ContextTypes.DEFAULT
             reply_markup=teclado
         )
     else:
-        # 5. Se nem FAQ nem IA responderam, direciona para atendimento humanizado
-        await update.message.reply_text(
-            "🤔 Não encontrei uma resposta automática para sua pergunta.\n\n"
-            "Vou direcionar você para nosso atendimento humanizado para que possamos ajudar melhor!"
-        )
+        # 5. Se nem FAQ nem IA responderam, NÃO abre chamado automaticamente.
+        # Apenas informa que não entendeu e oferece opções ao usuário.
+        teclado = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("❓ FAQ Automático", callback_data="atendimento_faq"),
+                InlineKeyboardButton("👤 Falar com Atendente", callback_data="atendimento_humanizado")
+            ],
+            [InlineKeyboardButton("📧 Email de Suporte", callback_data="atendimento_email")]
+        ])
 
-        await iniciar_atendimento_humanizado(update, context, mensagem_inicial=texto_usuario)    
-# ==========================================
+        await update.message.reply_text(
+            "🤔 Não consegui entender sua pergunta.\n\n"
+            "Posso ajudar com dúvidas sobre cadastro, planos ou status de regulações.\n"
+            "Se preferir, você pode falar com um atendente humano ou consultar as perguntas frequentes.",
+            reply_markup=teclado
+        )# ==========================================
 # EXPORTAÇÃO
 # ==========================================
 
