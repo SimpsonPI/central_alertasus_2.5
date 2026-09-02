@@ -96,7 +96,7 @@ def main():
         def do_GET(self):
             self.send_response(200)
             self.end_headers()
-            self.wfile.write(b"Central de Atendimento AlertaSUS is running!")
+            self.wfile.write(b"Central de Atendimento VigiaSaude is running!")
 
     def run_http_server(port):
         server = HTTPServer(("0.0.0.0", port), SimpleHandler)
@@ -105,7 +105,7 @@ def main():
     threading.Thread(target=run_http_server, args=(PORT,), daemon=True).start()
     logger.info(f"Servidor HTTP auxiliar rodando na porta {PORT}")
 
-    logger.info("Iniciando a Central de Atendimento AlertaSUS via polling...")
+    logger.info("Iniciando a Central de Atendimento VigiaSaude via polling...")
     app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":

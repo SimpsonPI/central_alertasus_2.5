@@ -78,7 +78,7 @@ async def buscar_contexto_usuario(chat_id: str) -> dict:
             contexto["usou_degustacao"] = False
 
         # Busca regulações cadastradas
-        res_regulacoes = supabase.table("AlertaSUS_2.0").select("numero_reg", "procedimento", "status_anterior").eq("chat_id", str(chat_id)).execute()
+        res_regulacoes = supabase.table("VigiaSaude").select("numero_reg", "procedimento", "status_anterior").eq("chat_id", str(chat_id)).execute()
         if res_regulacoes.data:
             contexto["regulacoes"] = res_regulacoes.data
         else:
@@ -194,4 +194,4 @@ async def obter_configuracao(chave: str) -> str | None:
 async def obter_email_suporte() -> str:
     """Obtém o email de suporte configurado."""
     email = await obter_configuracao("email_suporte")
-    return email or "suportealertasus@gmail.com"
+    return email or "suporteVigiaSaude@gmail.com"

@@ -22,7 +22,7 @@ MODELO_IA = "openrouter/free"
 
 async def obter_conhecimento_github() -> str:
     """Busca o conteúdo do arquivo conhecimento.md no GitHub."""
-    url = "https://raw.githubusercontent.com/SimpsonPI/central_alertasus_2.5/main/conhecimento.md"
+    url = "https://raw.githubusercontent.com/SimpsonPI/central_VigiaSaude_2.5/main/conhecimento.md"
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.get(url)
@@ -38,7 +38,7 @@ async def obter_conhecimento_github() -> str:
 
 async def obter_conhecimento_github() -> str:
     """Busca o conteúdo do arquivo conhecimento.md no GitHub."""
-    url = "https://raw.githubusercontent.com/SimpsonPI/central_alertasus_2.5/main/conhecimento.md"
+    url = "https://raw.githubusercontent.com/SimpsonPI/central_VigiaSaude_2.5/main/conhecimento.md"
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.get(url)
@@ -92,10 +92,10 @@ async def gerar_resposta_ia(mensagem_usuario: str, contexto: dict = None) -> str
         # 3. Monta o prompt do sistema com o conhecimento + contexto
                 # Monta o prompt do sistema com o conhecimento + contexto
         system_prompt = (
-            "Você é o AlertaSUS, o assistente virtual oficial do serviço de monitoramento de regulações de saúde.\n\n"
+            "Você é o VigiaSaude, o assistente virtual oficial do serviço de monitoramento de regulações de saúde.\n\n"
             "POSTURA:\n"
-            "- Fale sempre em primeira pessoa ('eu', 'nós'). NUNCA diga 'segundo o sistema', 'de acordo com o AlertaSUS' ou 'o sistema informa'.\n"
-            "- Você É o AlertaSUS. Seja direto, acolhedor e use uma linguagem simples.\n"
+            "- Fale sempre em primeira pessoa ('eu', 'nós'). NUNCA diga 'segundo o sistema', 'de acordo com o VigiaSaude' ou 'o sistema informa'.\n"
+            "- Você É o VigiaSaude. Seja direto, acolhedor e use uma linguagem simples.\n"
             "- Reconheça que o usuário já está cadastrado: se ele está falando com você, ele já passou pelo cadastro.\n"
             "- Não trate o usuário como se ele fosse novo ou não tivesse cadastro.\n\n"
 
@@ -144,7 +144,7 @@ async def gerar_resposta_ia(mensagem_usuario: str, contexto: dict = None) -> str
         return None
         # SISTEMA PROMPT - CONTROLE TOTAL DO COMPORTAMENTO DA IA
         system_prompt = (
-            "Você é o assistente virtual oficial do AlertaSUS 2.0, um serviço independente "
+            "Você é o assistente virtual oficial do VigiaSaude, um serviço independente "
             "que monitora regulações de saúde (consultas e exames) no SUS de Teresina-PI.\n\n"
 
             "REGRAS IMPORTANTES:\n"

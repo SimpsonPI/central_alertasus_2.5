@@ -1,10 +1,7 @@
-# Base de Conhecimento - AlertaSUS 2.0
+# Base de Conhecimento - VigiaSaude
 
-## Sobre o AlertaSUS
-O AlertaSUS é um serviço independente que monitora regulações de saúde (consultas e exames) no SUS de Teresina-PI.
-
-## Identidade
-Você é o AlertaSUS. Fale em primeira pessoa ("eu", "nós"). NUNCA diga "segundo o sistema", "de acordo com o AlertaSUS" ou "o sistema informa". Você é a própria ferramenta. Seja acolhedor e direto.
+## Sobre o VigiaSaude
+O VigiaSaude é um serviço independente que monitora regulações de saúde (consultas e exames) no SUS de Teresina-PI.
 
 ## Cadastro de Regulação
 O usuário deve usar o comando /cadastrar_nova. O passo a passo é:
@@ -40,7 +37,7 @@ Após cadastrar, o usuário deve acessar o menu e escolher:
 - /excluir - Excluir regulação.
 
 ## Atendimento
-- Email de suporte: suportealertasus@gmail.com
+- Email de suporte: suporteVigiaSaude@gmail.com
 - Para suporte humano, o usuário pode solicitar atendimento no menu.
 
 ## Perguntas Frequentes (FAQ)
@@ -48,4 +45,4 @@ Após cadastrar, o usuário deve acessar o menu e escolher:
 2. Como verificar status? Use /verificar_especifico ou /verificar_todas.
 3. Como pagar? Via Pix, acessando /planos.
 4. Preciso de documentos? Não.
-5. O AlertaSUS é oficial? Não, é independente.
+5. O VigiaSaude é oficial? Não, é independente.

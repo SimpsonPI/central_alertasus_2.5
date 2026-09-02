@@ -35,7 +35,7 @@ async def menu_atendimento(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.callback_query.answer()
     
     texto = (
-        "👋 Olá! Sou o assistente virtual do **AlertaSUS 2.0**.\n\n"
+        "👋 Olá! Sou o assistente virtual do **VigiaSaude**.\n\n"
         "Pode digitar sua dúvida abaixo que responderei imediatamente. 😊\n\n"
         "Exemplos:\n"
         "• Como cadastrar uma regulação?\n"
@@ -60,7 +60,7 @@ async def iniciar_faq(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.answer()
         
         texto = (
-            "📚 <b>FAQ Automático - AlertaSUS 2.0</b>\n\n"
+            "📚 <b>FAQ Automático - VigiaSaude</b>\n\n"
             "Digite abaixo sua dúvida que nossa IA tentará responder automaticamente.\n"
             "Ou clique em um dos tópicos abaixo:\n\n"
             "1️⃣ Como cadastrar uma regulação?\n"
@@ -68,7 +68,7 @@ async def iniciar_faq(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "3️⃣ Onde encontrar o Cartão SUS ou ID?\n"
             "4️⃣ Como alterar meus dados?\n"
             "5️⃣ Planos e Assinaturas\n"
-            "6️⃣ O AlertaSUS tem vínculo com o governo?"
+            "6️⃣ O VigiaSaude tem vínculo com o governo?"
         )
         
         teclado = InlineKeyboardMarkup([
@@ -91,7 +91,7 @@ async def iniciar_faq(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(texto, parse_mode="HTML", reply_markup=teclado)
     else:
         texto = (
-            "📚 <b>FAQ Automático - AlertaSUS 2.0</b>\n\n"
+            "📚 <b>FAQ Automático - VigiaSaude</b>\n\n"
             "Digite abaixo sua dúvida que nossa IA tentará responder automaticamente.\n"
             "Ou clique em um dos tópicos abaixo:"
         )
@@ -192,7 +192,7 @@ async def iniciar_atendimento_humanizado(update: Update, context: ContextTypes.D
         await query.answer()
         
         texto = (
-            "👤 <b>Atendimento Humanizado - AlertaSUS 2.0</b>\n\n"
+            "👤 <b>Atendimento Humanizado - VigiaSaude</b>\n\n"
             "Você será atendido por nossa equipe especializada.\n\n"
             "Por favor, descreva sua dúvida ou problema abaixo.\n"
             "Nossa equipe responderá o mais breve possível (horário comercial: 08h às 18h).\n\n"
@@ -202,7 +202,7 @@ async def iniciar_atendimento_humanizado(update: Update, context: ContextTypes.D
         await query.edit_message_text(texto, parse_mode="HTML")
     else:
         await update.message.reply_text(
-            "👤 <b>Atendimento Humanizado - AlertaSUS 2.0</b>\n\n"
+            "👤 <b>Atendimento Humanizado - VigiaSaude</b>\n\n"
             "Por favor, descreva sua dúvida ou problema abaixo.\n"
             "Nossa equipe responderá o mais breve possível.\n\n"
             "<i>Digite sua mensagem agora:</i>",
@@ -263,7 +263,7 @@ async def processar_mensagem_humanizado(update: Update, context: ContextTypes.DE
                 f"Seu protocolo de atendimento é: <code>#{chamado_id}</code>\n\n"
                 "Nossa equipe analisará seu chamado e responderá em breve.\n"
                 "Você receberá uma notificação assim que houver resposta.\n\n"
-                "📧 Para contato direto, utilize nosso email: suportealertasus@gmail.com",
+                "📧 Para contato direto, utilize nosso email: suporteVigiaSaude@gmail.com",
                 parse_mode="HTML"
             )
 
@@ -284,7 +284,7 @@ async def processar_mensagem_humanizado(update: Update, context: ContextTypes.DE
         if update.message:
             await update.message.reply_text(
                 "❌ Ocorreu um erro ao registrar seu chamado.\n"
-                "Por favor, tente novamente ou contate: suportealertasus@gmail.com"
+                "Por favor, tente novamente ou contate: suporteVigiaSaude@gmail.com"
             )
 
     return ConversationHandler.END
@@ -321,7 +321,7 @@ async def callback_email_suporte(update: Update, context: ContextTypes.DEFAULT_T
     texto = (
         "📧 <b>Email de Suporte</b>\n\n"
         "Para entrar em contato com nossa equipe, utilize o email:\n\n"
-        "<b>suportealertasus@gmail.com</b>\n\n"
+        "<b>suporteVigiaSaude@gmail.com</b>\n\n"
         "Nossa equipe responderá o mais breve possível.\n\n"
         "<b>Horário de atendimento:</b>\n"
         "Segunda a Sexta: 08h às 18h\n"
@@ -579,12 +579,12 @@ async def faq_planos(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def faq_governo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Resposta para O AlertaSUS tem vínculo com o governo."""
+    """Resposta para O VigiaSaude tem vínculo com o governo."""
     query = update.callback_query
     await query.answer()
     texto = (
-        "⚠️ <b>O AlertaSUS tem vínculo com o governo?</b>\n\n"
-        "Não. O AlertaSUS é uma ferramenta <b>independente</b> e não possui vínculo oficial com a Prefeitura de Teresina, FMS ou SUS.\n"
+        "⚠️ <b>O VigiaSaude tem vínculo com o governo?</b>\n\n"
+        "Não. O VigiaSaude é uma ferramenta <b>independente</b> e não possui vínculo oficial com a Prefeitura de Teresina, FMS ou SUS.\n"
         "As informações são baseadas nos dados públicos dos portais de regulação."
     )
     teclado = InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Voltar", callback_data="atendimento_faq")]])
