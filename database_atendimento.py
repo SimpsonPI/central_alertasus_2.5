@@ -96,6 +96,7 @@ async def buscar_faq_por_palavras_chave(texto_usuario: str) -> dict | None:
 # ==========================================
 
 async def registrar_chamado_suporte(chat_id: str, nome_usuario: str, mensagem: str) -> int | None:
+    """Registra um novo chamado de suporte humanizado."""
     try:
         res = supabase.table("chamados_suporte").insert({
             "chat_id": str(chat_id),
@@ -106,8 +107,10 @@ async def registrar_chamado_suporte(chat_id: str, nome_usuario: str, mensagem: s
         if res.data:
             return res.data[0]["id"]
         return None
+
     except Exception as e:
-        logger.error(f"ERRO COMPLETO ao registrar chamado: {repr(e)}")
+        logger.error(f"ERRO COMPLETO: {repr(e)}")  # Mostra o erro real do Supabase
+        logger.error(f"DETALHES: {e}")
         return None
         
 async def adicionar_mensagem_fila(chamado_id: int, chat_id: str, mensagem: str, enviado_por: str = "usuario") -> bool:

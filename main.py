@@ -66,6 +66,7 @@ def main():
     app.add_handler(CommandHandler("faq", iniciar_faq))
     app.add_handler(CommandHandler("chamados", comando_ver_chamados))
     app.add_handler(CommandHandler("responder", comando_responder_chamado))
+    app.add_handler(CommandHandler("suporte", menu_atendimento))
 
     # ConversationHandler
     app.add_handler(conv_atendimento_humanizado)
