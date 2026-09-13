@@ -211,7 +211,6 @@ async def buscar_estatisticas_admin() -> dict:
     }
 
     # 1. Total de usuários únicos (chat_id distintos em assinaturas)
-        # 1. Total de usuários únicos (chat_id distintos em assinaturas)
     try:
         res = supabase.table("assinaturas").select("chat_id").execute()
         logger.info(f"📊 Retorno assinaturas: {res.data}")
@@ -235,7 +234,7 @@ async def buscar_estatisticas_admin() -> dict:
     # 3. Assinaturas ativas
     try:
         res = supabase.table("assinaturas").select("chat_id, status").execute()
-        logger.info(f"📊 Amostra de assinaturas: {res.data[:3] if res.data else 'vazio'}")
+        logger.info(f"📊 Amostra de assinaturas: {res.data if res.data else 'vazio'}")
         if res.data:
             ativas = [a for a in res.data if str(a.get("status", "")).lower() in ("ativo", "active", "ativa")]
             stats["total_assinaturas_ativas"] = len(ativas)
