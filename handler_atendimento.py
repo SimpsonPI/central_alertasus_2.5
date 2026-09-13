@@ -652,7 +652,6 @@ async def processar_mensagem_geral(update: Update, context: ContextTypes.DEFAULT
     contexto_usuario = await buscar_contexto_usuario(chat_id)
 
     # 1.1 Se for admin, busca estatísticas do sistema
-    is_admin = (update.effective_user.id == ADMIN_ID)
     if is_admin:
         try:
             stats = await buscar_estatisticas_admin()
@@ -664,9 +663,9 @@ async def processar_mensagem_geral(update: Update, context: ContextTypes.DEFAULT
     resposta_faq = await buscar_faq_por_palavras_chave(texto_usuario)
 
     # 3. Se não encontrou no FAQ, tenta usar a IA com contexto
+        # 3. Se não encontrou no FAQ, tenta usar a IA com contexto
     if not resposta_faq:
-        is_admin = (update.effective_user.id == ADMIN_ID)
-        resposta_ia = await gerar_resposta_ia(
+            resposta_ia = await gerar_resposta_ia(
             texto_usuario,
             {
                 "nome_usuario": update.effective_user.first_name,
@@ -675,8 +674,8 @@ async def processar_mensagem_geral(update: Update, context: ContextTypes.DEFAULT
                 "is_admin": is_admin
             }
         )
-        if resposta_ia:
-            resposta_faq = {"resposta": resposta_ia}
+            if resposta_ia:
+                resposta_faq = {"resposta": resposta_ia}
 
     # 4. Se encontrou resposta (FAQ ou IA), envia
     if resposta_faq:
