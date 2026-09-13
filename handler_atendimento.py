@@ -137,13 +137,17 @@ async def processar_pergunta_faq(update: Update, context: ContextTypes.DEFAULT_T
     resposta_faq = await buscar_faq_por_palavras_chave(texto_usuario)
 
     # 3. Se não encontrou no FAQ, tenta usar a IA com contexto
+        # 3. Se não encontrou no FAQ, tenta usar a IA com contexto
     if not resposta_faq:
+        is_admin = (update.effective_user.id == ADMIN_ID) # <-- NOVO
+        
         resposta_ia = await gerar_resposta_ia(
             texto_usuario,
             {
                 "nome_usuario": update.effective_user.first_name,
                 "chat_id": chat_id,
-                "contexto_usuario": contexto_usuario  # <-- PASSA O CONTEXTO
+                "contexto_usuario": contexto_usuario,
+                "is_admin": is_admin  # <-- NOVO: Avisa a IA que é o Admin
             }
         )
         if resposta_ia:
@@ -198,7 +202,6 @@ async def iniciar_atendimento_humanizado(update: Update, context: ContextTypes.D
             "Nossa equipe responderá o mais breve possível (horário comercial: 08h às 18h).\n\n"
             "<i>Digite sua mensagem agora:</i>"
         )
-        
         await query.edit_message_text(texto, parse_mode="HTML")
     else:
         await update.message.reply_text(
@@ -263,7 +266,7 @@ async def processar_mensagem_humanizado(update: Update, context: ContextTypes.DE
                 f"Seu protocolo de atendimento é: <code>#{chamado_id}</code>\n\n"
                 "Nossa equipe analisará seu chamado e responderá em breve.\n"
                 "Você receberá uma notificação assim que houver resposta.\n\n"
-                "📧 Para contato direto, utilize nosso email: suporteVigiaSaude@gmail.com",
+                "📧 Para contato direto, utilize nosso email: suportevigiasaude@gmail.com",
                 parse_mode="HTML"
             )
 
@@ -284,7 +287,7 @@ async def processar_mensagem_humanizado(update: Update, context: ContextTypes.DE
         if update.message:
             await update.message.reply_text(
                 "❌ Ocorreu um erro ao registrar seu chamado.\n"
-                "Por favor, tente novamente ou contate: suporteVigiaSaude@gmail.com"
+                "Por favor, tente novamente ou contate: suportevigiasaude@gmail.com"
             )
 
     return ConversationHandler.END
@@ -321,7 +324,7 @@ async def callback_email_suporte(update: Update, context: ContextTypes.DEFAULT_T
     texto = (
         "📧 <b>Email de Suporte</b>\n\n"
         "Para entrar em contato com nossa equipe, utilize o email:\n\n"
-        "<b>suporteVigiaSaude@gmail.com</b>\n\n"
+        "<b>suportevigiasaude@gmail.com</b>\n\n"
         "Nossa equipe responderá o mais breve possível.\n\n"
         "<b>Horário de atendimento:</b>\n"
         "Segunda a Sexta: 08h às 18h\n"
@@ -618,13 +621,17 @@ async def processar_mensagem_geral(update: Update, context: ContextTypes.DEFAULT
     resposta_faq = await buscar_faq_por_palavras_chave(texto_usuario)
 
     # 3. Se não encontrou no FAQ, tenta usar a IA com contexto
+        # 3. Se não encontrou no FAQ, tenta usar a IA com contexto
     if not resposta_faq:
+        is_admin = (update.effective_user.id == ADMIN_ID) # <-- NOVO
+        
         resposta_ia = await gerar_resposta_ia(
             texto_usuario,
             {
                 "nome_usuario": update.effective_user.first_name,
                 "chat_id": chat_id,
-                "contexto_usuario": contexto_usuario
+                "contexto_usuario": contexto_usuario,
+                "is_admin": is_admin  # <-- NOVO: Avisa a IA que é o Admin
             }
         )
         if resposta_ia:
@@ -669,12 +676,12 @@ async def processar_mensagem_geral(update: Update, context: ContextTypes.DEFAULT
         ])
 
         await update.message.reply_text(
-            "🤔 Não consegui entender sua pergunta.\n\n"
-            "Posso ajudar com dúvidas sobre cadastro, planos ou status de regulações.\n"
-            "Se preferir, você pode falar com um atendente humano ou consultar as perguntas frequentes.",
-            reply_markup=teclado
-        )
-# ==========================================
+        "🤔 Não consegui entender sua pergunta.\n\n"
+        "Posso ajudar com dúvidas sobre cadastro, planos ou status de regulações.\n"
+        "Se preferir, você pode falar com um atendente humano ou consultar as perguntas frequentes.",
+        reply_markup=teclado
+    )   
+
 # EXPORTAÇÃO
 # ==========================================
 

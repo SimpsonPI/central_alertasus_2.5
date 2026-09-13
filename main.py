@@ -1,6 +1,10 @@
 import os
 import logging
-from telegram import BotCommand, BotCommandScopeAllPrivateChats
+from telegram import (
+    BotCommand,
+    BotCommandScopeAllPrivateChats,
+    BotCommandScopeChat,
+)
 from telegram.ext import (
     ApplicationBuilder,
     CallbackQueryHandler,
@@ -11,7 +15,7 @@ from telegram.ext import (
     filters,
 )
 
-from config import TELEGRAM_BOT_TOKEN
+from config import TELEGRAM_BOT_TOKEN, ADMIN_CHAT_ID
 from handler_atendimento import (
     menu_atendimento,
     iniciar_faq,
@@ -33,12 +37,52 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
 async def erro_global_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
     logger.error(msg="Exceção capturada pelo bot:", exc_info=context.error)
 
+
+async def configurar_comandos(app):
+    """Define os comandos do menu do Telegram, separando admin e usuário comum."""
+    # Comandos públicos (todos os usuários veem)
+    comandos_publicos = [
+        BotCommand("start", "Iniciar atendimento"),
+        BotCommand("menu", "Abrir menu principal"),
+        BotCommand("faq", "Consultar FAQ automático"),
+        BotCommand("atendimento", "Falar com atendente humano"),
+        BotCommand("suporte", "Informações de suporte"),
+    ]
+
+    # Aplica a TODOS os chats privados
+    await app.bot.set_my_commands(
+        comandos_publicos,
+        scope=BotCommandScopeAllPrivateChats(),
+    )
+
+    # Comandos exclusivos do Admin
+    if ADMIN_CHAT_ID:
+        comandos_admin = comandos_publicos + [
+            BotCommand("chamados", "Ver chamados abertos (admin)"),
+            BotCommand("responder", "Responder chamado (admin)"),
+        ]
+        try:
+            await app.bot.set_my_commands(
+                comandos_admin,
+                scope=BotCommandScopeChat(chat_id=ADMIN_CHAT_ID),
+            )
+            logger.info(f"✅ Comandos de admin configurados para {ADMIN_CHAT_ID}")
+        except Exception as e:
+            logger.error(f"Erro ao configurar comandos de admin: {e}")
+
+
 def main():
     token = os.getenv("TELEGRAM_BOT_TOKEN") or TELEGRAM_BOT_TOKEN
-    app = ApplicationBuilder().token(token).build()
+    app = (
+        ApplicationBuilder()
+        .token(token)
+        .post_init(configurar_comandos)
+        .build()
+    )
     app.add_error_handler(erro_global_handler)
 
     # ConversationHandler para Atendimento Humanizado
@@ -64,16 +108,15 @@ def main():
     app.add_handler(CommandHandler("menu", menu_atendimento))
     app.add_handler(CommandHandler("atendimento", menu_atendimento))
     app.add_handler(CommandHandler("faq", iniciar_faq))
+    app.add_handler(CommandHandler("suporte", menu_atendimento))
+    # Comandos de admin (a verificação de permissão está dentro das funções)
     app.add_handler(CommandHandler("chamados", comando_ver_chamados))
     app.add_handler(CommandHandler("responder", comando_responder_chamado))
-    app.add_handler(CommandHandler("suporte", menu_atendimento))
 
     # ConversationHandler
     app.add_handler(conv_atendimento_humanizado)
 
     # Callbacks
-    app.add_handler(CallbackQueryHandler(menu_atendimento, pattern="^atendimento_menu$"))
-    app.add_handler(CallbackQueryHandler(iniciar_faq, pattern="^atendimento_faq$"))
     app.add_handler(CallbackQueryHandler(menu_atendimento, pattern="^atendimento_menu$"))
     app.add_handler(CallbackQueryHandler(iniciar_faq, pattern="^atendimento_faq$"))
     app.add_handler(CallbackQueryHandler(iniciar_atendimento_humanizado, pattern="^atendimento_humanizado$"))
@@ -84,12 +127,12 @@ def main():
     # Handler global para mensagens (IA automática)
     app.add_handler(
         MessageHandler(filters.TEXT & ~filters.COMMAND, processar_mensagem_geral),
-        group=2
+        group=2,
     )
 
-    # Servidor HTTP auxiliar para o Railway manter a porta aberta
+    # Servidor HTTP auxiliar para o Railway
     PORT = int(os.environ.get("PORT", "8080"))
-    
+
     import threading
     from http.server import HTTPServer, BaseHTTPRequestHandler
 
@@ -108,6 +151,7 @@ def main():
 
     logger.info("Iniciando a Central de Atendimento VigiaSaude via polling...")
     app.run_polling(drop_pending_updates=True)
+
 
 if __name__ == "__main__":
     main()
