@@ -10,9 +10,29 @@ from database_atendimento import (
     adicionar_mensagem_fila,
     registrar_historico,
     obter_email_suporte,
-    buscar_contexto_usuario,  # <-- Corrigido
+    buscar_contexto_usuario,  
+    buscar_estatisticas_admin,
 )
 from database import supabase
+
+import re
+
+def limpar_markdown(texto: str) -> str:
+    """Remove marcadores de Markdown que ficam feios sem parse_mode."""
+    if not texto:
+        return texto
+    # Remove **negrito** e *itálico*
+    texto = re.sub(r"\*\*(.+?)\*\*", r"\1", texto)
+    texto = re.sub(r"(?<!\*)\*(?!\s)(.+?)(?<!\s)\*(?!\*)", r"\1", texto)
+    # Remove ### títulos
+    texto = re.sub(r"^#{1,6}\s*", "", texto, flags=re.MULTILINE)
+    # Remove `código inline`
+    texto = re.sub(r"`(.+?)`", r"\1", texto)
+    # Remove blocos ```code```
+    texto = re.sub(r"```.*?```", "", texto, flags=re.DOTALL)
+    # Colapsa linhas vazias triplas
+    texto = re.sub(r"\n{3,}", "\n\n", texto)
+    return texto.strip()
 
 try:
     from config import ADMIN_CHAT_ID
@@ -24,6 +44,19 @@ logger = logging.getLogger(__name__)
 
 # Estados da conversa
 AGUARDANDO_MENSAGEM_CHAMADO = 1
+
+def escapar_html_seguro(texto: str) -> str:
+    """Escapa apenas caracteres que quebram o parser HTML do Telegram,
+    preservando tags básicas que a IA costuma usar (<b>, <i>, <code>)."""
+    if not texto:
+        return texto
+    # Escapa & (precisa ser o primeiro) e < > isolados (não seguidos de letra ou /)
+    import re
+    texto = texto.replace("&", "&amp;")
+    # Só escapa < e > que NÃO fazem parte de uma tag conhecida
+    texto = re.sub(r"<(?!/?(?:b|i|u|s|code|pre|a)(?:\s|>|/))", "&lt;", texto)
+    texto = re.sub(r"(?<!>)>(?![a-zA-Z])", "&gt;", texto)
+    return texto
 
 # ==========================================
 # MENU DE ATENDIMENTO
@@ -163,8 +196,8 @@ async def processar_pergunta_faq(update: Update, context: ContextTypes.DEFAULT_T
         )
 
         await update.message.reply_text(
-            resposta_faq["resposta"],
-            parse_mode="HTML"
+        resposta_faq["resposta"]
+        # Sem parse_mode — evita erro 400 quando a IA gera < > &
         )
 
         teclado = InlineKeyboardMarkup([
@@ -611,27 +644,35 @@ async def processar_mensagem_geral(update: Update, context: ContextTypes.DEFAULT
 
     # Verifica se o usuário está em um fluxo específico (cadastro, correção, etc.)
     if context.user_data.get("modo_atendimento") == "humanizado":
-        return  # Não interfere no atendimento humanizado
+        return
 
     # 1. Busca contexto do usuário no Supabase
+        # 1. Busca contexto do usuário no Supabase
     chat_id = str(update.effective_user.id)
     contexto_usuario = await buscar_contexto_usuario(chat_id)
+
+    # 1.1 Se for admin, busca estatísticas do sistema
+    is_admin = (update.effective_user.id == ADMIN_ID)
+    if is_admin:
+        try:
+            stats = await buscar_estatisticas_admin()
+            contexto_usuario.update(stats)
+        except Exception as e:
+            logger.error(f"Erro ao buscar estatísticas do admin: {e}")
 
     # 2. Tenta encontrar resposta no FAQ estático
     resposta_faq = await buscar_faq_por_palavras_chave(texto_usuario)
 
     # 3. Se não encontrou no FAQ, tenta usar a IA com contexto
-        # 3. Se não encontrou no FAQ, tenta usar a IA com contexto
     if not resposta_faq:
-        is_admin = (update.effective_user.id == ADMIN_ID) # <-- NOVO
-        
+        is_admin = (update.effective_user.id == ADMIN_ID)
         resposta_ia = await gerar_resposta_ia(
             texto_usuario,
             {
                 "nome_usuario": update.effective_user.first_name,
                 "chat_id": chat_id,
                 "contexto_usuario": contexto_usuario,
-                "is_admin": is_admin  # <-- NOVO: Avisa a IA que é o Admin
+                "is_admin": is_admin
             }
         )
         if resposta_ia:
@@ -646,56 +687,62 @@ async def processar_mensagem_geral(update: Update, context: ContextTypes.DEFAULT
             origem="bot"
         )
 
-        await update.message.reply_text(
-            resposta_faq["resposta"],
-            parse_mode="HTML"
-        )
+        # Limpa Markdown e limita o tamanho (Telegram = 4096)
+        texto_resposta = limpar_markdown(resposta_faq["resposta"])
+        if len(texto_resposta) > 4000:
+            texto_resposta = texto_resposta[:3990] + "\n\n[...]"
 
-        # Oferece opções adicionais
-        teclado = InlineKeyboardMarkup([
-            [
-                InlineKeyboardButton("❓ FAQ Automático", callback_data="atendimento_faq"),
-                InlineKeyboardButton("👤 Falar com Atendente", callback_data="atendimento_humanizado")
-            ],
-            [InlineKeyboardButton("📧 Email de Suporte", callback_data="atendimento_email")]
-        ])
+        # Tentativa 1: envio simples (sem parse_mode)
+        try:
+            await update.message.reply_text(texto_resposta)
+        except Exception as e:
+            logger.error(f"Falha ao enviar resposta (tentativa 1): {e}")
+            try:
+                texto_seguro = texto_resposta[:4000]
+                await update.message.reply_text(texto_seguro)
+            except Exception as e2:
+                logger.error(f"Falha ao enviar resposta (tentativa 2): {e2}")
 
-        await update.message.reply_text(
-            "Posso ajudar com mais alguma coisa? Selecione uma opção abaixo:",
-            reply_markup=teclado
-        )
+        # Oferece opções adicionais (HTML fixo, sem risco)
+        try:
+            teclado = InlineKeyboardMarkup([
+                [
+                    InlineKeyboardButton("❓ FAQ Automático", callback_data="atendimento_faq"),
+                    InlineKeyboardButton("👤 Falar com Atendente", callback_data="atendimento_humanizado")
+                ],
+                [InlineKeyboardButton("📧 Email de Suporte", callback_data="atendimento_email")]
+            ])
+            await update.message.reply_text(
+                "Posso ajudar com mais alguma coisa? Selecione uma opção abaixo:",
+                reply_markup=teclado
+            )
+        except Exception as e:
+            logger.error(f"Falha ao enviar botões: {e}")
+
     else:
-        # 5. Se nem FAQ nem IA responderam, NÃO abre chamado automaticamente.
-        # Apenas informa que não entendeu e oferece opções ao usuário.
-        teclado = InlineKeyboardMarkup([
-            [
-                InlineKeyboardButton("❓ FAQ Automático", callback_data="atendimento_faq"),
-                InlineKeyboardButton("👤 Falar com Atendente", callback_data="atendimento_humanizado")
-            ],
-            [InlineKeyboardButton("📧 Email de Suporte", callback_data="atendimento_email")]
-        ])
+        # 5. Fallback para quando a IA não responde
+        is_admin = (update.effective_user.id == ADMIN_ID)
 
-        await update.message.reply_text(
-        "🤔 Não consegui entender sua pergunta.\n\n"
-        "Posso ajudar com dúvidas sobre cadastro, planos ou status de regulações.\n"
-        "Se preferir, você pode falar com um atendente humano ou consultar as perguntas frequentes.",
-        reply_markup=teclado
-    )   
-
-# EXPORTAÇÃO
-# ==========================================
-
-__all__ = [
-    "menu_atendimento",
-    "iniciar_faq",
-    "processar_pergunta_faq",
-    "iniciar_atendimento_humanizado",
-    "processar_mensagem_humanizado",
-    "ver_meus_chamados",
-    "comando_ver_chamados",
-    "comando_responder_chamado",
-    "cancelar_atendimento",
-    "callback_email_suporte",
-    "processar_mensagem_geral",  # <-- ADICIONE ESTA LINHA
-    "AGUARDANDO_MENSAGEM_CHAMADO"
-]
+        if is_admin:
+            teclado = InlineKeyboardMarkup([
+                [InlineKeyboardButton("📋 Ver Chamados", callback_data="ver_chamados")],
+                [InlineKeyboardButton("❓ FAQ Automático", callback_data="atendimento_faq")]
+            ])
+            await update.message.reply_text(
+                "🤖 Não entendi. Como administrador, use /chamados ou o FAQ.",
+                reply_markup=teclado
+            )
+        else:
+            teclado = InlineKeyboardMarkup([
+                [
+                    InlineKeyboardButton("❓ FAQ Automático", callback_data="atendimento_faq"),
+                    InlineKeyboardButton("👤 Falar com Atendente", callback_data="atendimento_humanizado")
+                ],
+                [InlineKeyboardButton("📧 Email de Suporte", callback_data="atendimento_email")]
+            ])
+            await update.message.reply_text(
+                "🤔 Não consegui entender sua pergunta.\n\n"
+                "Posso ajudar com dúvidas sobre cadastro, planos ou status de regulações.\n"
+                "Se preferir, você pode falar com um atendente humano ou consultar as perguntas frequentes.",
+                reply_markup=teclado
+            )
