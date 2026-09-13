@@ -38,7 +38,7 @@ async def buscar_contexto_usuario(chat_id: str) -> dict:
             contexto["usou_degustacao"] = False
 
         # Busca regulações cadastradas
-        res_regulacoes = supabase.table("VigiaSaude").select("numero_reg, procedimento, status_anterior").eq("chat_id", str(chat_id)).execute()
+        res_regulacoes = supabase.table("AlertaSUS_2.0").select("numero_reg, procedimento, status_anterior").eq("chat_id", str(chat_id)).execute()
         if res_regulacoes.data:
             contexto["regulacoes"] = res_regulacoes.data
         else:
@@ -199,3 +199,67 @@ async def obter_email_suporte() -> str:
     """Obtém o email de suporte configurado."""
     email = await obter_configuracao("email_suporte")
     return email or "suportevigiasaude@gmail.com"
+
+async def buscar_estatisticas_admin() -> dict:
+    """Busca estatísticas do sistema para o administrador."""
+    stats = {
+        "total_usuarios": 0,
+        "total_chamados_abertos": 0,
+        "total_assinaturas_ativas": 0,
+        "total_regulacoes": 0,
+        "ultimos_chamados": []
+    }
+
+    # 1. Total de usuários únicos (chat_id distintos em assinaturas)
+        # 1. Total de usuários únicos (chat_id distintos em assinaturas)
+    try:
+        res = supabase.table("assinaturas").select("chat_id").execute()
+        logger.info(f"📊 Retorno assinaturas: {res.data}")
+        if res.data:
+            chat_ids_unicos = set(str(row["chat_id"]) for row in res.data if row.get("chat_id"))
+            stats["total_usuarios"] = len(chat_ids_unicos)
+            logger.info(f"📊 Usuários únicos: {stats['total_usuarios']}")
+        else:
+            logger.warning("📊 Retorno vazio da tabela assinaturas (RLS pode estar bloqueando)")
+    except Exception as e:
+        logger.error(f"❌ Erro ao contar usuários: {repr(e)}")
+
+    # 2. Chamados abertos
+    try:
+        res = supabase.table("chamados_suporte").select("id").in_("status", ["aberto", "em_andamento"]).execute()
+        stats["total_chamados_abertos"] = len(res.data) if res.data else 0
+        logger.info(f"📊 Chamados abertos: {stats['total_chamados_abertos']}")
+    except Exception as e:
+        logger.error(f"❌ Erro ao contar chamados abertos: {repr(e)}")
+
+    # 3. Assinaturas ativas
+    try:
+        res = supabase.table("assinaturas").select("chat_id, status").execute()
+        logger.info(f"📊 Amostra de assinaturas: {res.data[:3] if res.data else 'vazio'}")
+        if res.data:
+            ativas = [a for a in res.data if str(a.get("status", "")).lower() in ("ativo", "active", "ativa")]
+            stats["total_assinaturas_ativas"] = len(ativas)
+            logger.info(f"📊 Assinaturas ativas: {stats['total_assinaturas_ativas']}")
+    except Exception as e:
+        logger.error(f"❌ Erro ao contar assinaturas: {repr(e)}")
+
+    # 4. Total de regulações
+    try:
+        res = supabase.table("AlertaSUS_2.0").select("numero_reg").execute()
+        stats["total_regulacoes"] = len(res.data) if res.data else 0
+        logger.info(f"📊 Total de regulações: {stats['total_regulacoes']}")
+    except Exception as e:
+        logger.error(f"❌ Erro ao contar regulações: {repr(e)}")
+
+    # 5. Últimos 5 chamados
+    try:
+        res = supabase.table("chamados_suporte").select("id, nome_usuario, status").order("created_at", desc=True).limit(5).execute()
+        stats["ultimos_chamados"] = res.data if res.data else []
+        logger.info(f"📊 Últimos chamados: {len(stats['ultimos_chamados'])}")
+    except Exception as e:
+        logger.error(f"❌ Erro ao buscar últimos chamados: {repr(e)}")
+
+    # Debug final
+    logger.info(f"📊 ESTATÍSTICAS FINAIS: {stats}")
+
+    return stats

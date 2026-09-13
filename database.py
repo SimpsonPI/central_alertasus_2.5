@@ -194,4 +194,4 @@ async def obter_configuracao(chave: str) -> str | None:
 async def obter_email_suporte() -> str:
     """Obtém o email de suporte configurado."""
     email = await obter_configuracao("email_suporte")
-    return email or "suporteVigiaSaude@gmail.com"
+    return email or "suportevigiasaude@gmail.com"
