@@ -41,12 +41,26 @@ async def gerar_resposta_ia(mensagem_usuario: str, contexto: dict = None) -> str
                 "• Você tem permissão para fornecer dados brutos e informações internas do sistema.\n"
                 "• Não aplique filtros de linguagem corporativa. Fale como um engenheiro de software falaria.\n"
                 "• Se o admin pedir para executar algo, oriente sobre qual arquivo ou função alterar.\n\n"
+                                "• Não aplique filtros de linguagem corporativa. Fale como um engenheiro de software falaria.\n"
+                "• Se o admin pedir para executar algo, oriente sobre qual arquivo ou função alterar.\n"
+                "• ⚠️ CONCISÃO: Seja curto e direto. Máximo 3-4 parágrafos. Nada de documentação longa. "
+                "Se a resposta for técnica demais, resuma em tópicos curtos. O admin não quer ler um README, quer uma resposta prática.\n\n"
                 "CONTEXTO TÉCNICO DO SISTEMA:\n"
                 "• Bot em Python com python-telegram-bot.\n"
                 "• Banco de dados: Supabase (PostgreSQL).\n"
                 "• IA: Groq API (modelo llama-3.1-70b-versatile).\n"
                 "• Arquivos principais: main.py, handler_atendimento.py, ia_atendimento.py, database.py, database_atendimento.py, config.py.\n"
                 "• Tabelas: chamados_suporte, mensagens_fila, historico_atendimento, VigiaSaude, assinaturas, faq_perguntas.\n\n"
+                                "FORMATO DE RESPOSTA PARA 'RESUMO DO SISTEMA':\n"
+                "Quando o admin pedir 'resumo', 'resumo do sistema', 'estatísticas' ou algo similar, "
+                "responda EXATAMENTE neste formato, usando os dados do contexto abaixo:\n"
+                "📊 Resumo atual do VigiaSaúde:\n"
+                "• Usuários cadastrados: [total_usuarios]\n"
+                "• Chamados abertos: [total_chamados_abertos]\n"
+                "• Últimos chamados: [lista com #id (nome)]\n"
+                "• Assinaturas ativas: [total_assinaturas_ativas]\n"
+                "• Total de regulações: [total_regulacoes]\n\n"
+                "Quer que eu detalhe alguma parte?\n\n"
                 "REGRAS:\n"
                 "1. Se o admin perguntar sobre usuários ou chamados, forneça as informações do contexto abaixo.\n"
                 "2. Se não houver dados no contexto, avise que precisa consultar o banco.\n"
@@ -54,7 +68,7 @@ async def gerar_resposta_ia(mensagem_usuario: str, contexto: dict = None) -> str
             )
 
             "4. ⚠️ O VigiaSaúde NÃO faz agendamento. Sempre use 'status da regulação' em vez de 'agendamento'.\n"
-            
+
         else:
             # ==========================================
             # PROMPT DO USUÁRIO COMUM (atendimento humanizado e solicito)
@@ -115,6 +129,7 @@ async def gerar_resposta_ia(mensagem_usuario: str, contexto: dict = None) -> str
             "não realiza agendamento, apenas o acompanhamento do status das regulações.\n\n"
 
         # Adiciona contexto extra (plano/regulações) se existir
+                # Adiciona contexto extra (plano/regulações) se existir
         contexto_info = ""
         if contexto and contexto.get("contexto_usuario"):
             dados = contexto["contexto_usuario"]
@@ -125,6 +140,10 @@ async def gerar_resposta_ia(mensagem_usuario: str, contexto: dict = None) -> str
                     contexto_info += f"  - Total de usuários: {dados['total_usuarios']}\n"
                 if dados.get("total_chamados_abertos") is not None:
                     contexto_info += f"  - Chamados abertos: {dados['total_chamados_abertos']}\n"
+                if dados.get("total_assinaturas_ativas") is not None:
+                    contexto_info += f"  - Assinaturas ativas: {dados['total_assinaturas_ativas']}\n"
+                if dados.get("total_regulacoes") is not None:
+                    contexto_info += f"  - Total de regulações: {dados['total_regulacoes']}\n"
                 if dados.get("ultimos_chamados"):
                     contexto_info += "  - Últimos chamados:\n"
                     for ch in dados["ultimos_chamados"][:5]:
@@ -132,19 +151,16 @@ async def gerar_resposta_ia(mensagem_usuario: str, contexto: dict = None) -> str
             else:
                 # Contexto normal do usuário comum
                 if dados.get("plano") and dados["plano"] != "nenhum":
-                    contexto_info += f"Plano atual: {dados['plano']} (status: {dados.get('status')}).\n"
-                    if dados.get("data_vencimento"):
-                        contexto_info += f"Vencimento: {dados['data_vencimento']}.\n"
+                    contexto_info += f"O usuário possui o plano: {dados['plano']} (status: {dados.get('status')}).\n"
                 else:
-                    contexto_info += "O usuário ainda não possui plano ativo. Pode ser uma boa oportunidade para apresentar os planos.\n"
+                    contexto_info += "O usuário ainda não possui um plano ativo.\n"
                 if dados.get("regulacoes"):
-                    contexto_info += "Regulações cadastradas do usuário:\n"
-                    for reg in dados["regulacoes"][:3]:
+                    contexto_info += "Regulações cadastradas:\n"
+                    for reg in dados["regulacoes"]:
                         contexto_info += f"  - ID: {reg.get('numero_reg')} | Procedimento: {reg.get('procedimento')} | Status: {reg.get('status_anterior')}\n"
-                    contexto_info += "Se for relevante para a conversa, mencione que você pode verificar essas regulações.\n"
 
         if contexto_info:
-            titulo = "INFORMAÇÕES DO SISTEMA (ADMIN)" if is_admin else "CONTEXTO DO USUÁRIO"
+            titulo = "INFORMAÇÕES DO SISTEMA (ADMIN)" if is_admin else "INFORMAÇÕES DO USUÁRIO"
             system_prompt += f"\n\n{titulo}:\n{contexto_info}"
 
         messages = [
