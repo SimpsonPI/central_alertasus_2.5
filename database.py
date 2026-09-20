@@ -25,11 +25,9 @@ async def buscar_faq_por_palavras_chave(texto_usuario: str) -> dict | None:
         
         res = supabase.table("faq_perguntas").select("*").eq("ativo", True).execute()
         
-        if not res.data:
-            return None
-        
-        melhor_match = None
-        melhor_pontuacao = 0
+                # Só retorna FAQ se a pontuação for forte (evita falso positivo)
+        if melhor_match and melhor_pontuacao >= 3:
+            return melhor_match
         
         for faq in res.data:
             pontuacao = 0
