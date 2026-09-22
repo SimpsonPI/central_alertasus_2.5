@@ -1,4 +1,7 @@
+from multiprocessing import context
 import os
+import logging
+logger = logging.getLogger(__name__)
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ContextTypes,
@@ -13,6 +16,7 @@ from admin_central import (
     estatisticas_chamados,
     formatar_estatisticas,
 )
+from html import escape
 from database_atendimento import responder_chamado, supabase
 
 ADMIN_IDS = [int(x) for x in os.getenv("ADMIN_IDS", "").split(",") if x.strip()]
@@ -52,9 +56,9 @@ async def menu_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     await update.message.reply_text(
-        "🏛️ *Central Admin VigiaSaúde*\nEscolha uma opção:",
+        "🏛️ <b>Central Admin VigiaSaúde</b>\nEscolha uma opção:",
         reply_markup=_teclado_menu(),
-        parse_mode="Markdown"
+        parse_mode="HTML"
     )
 
 async def _renderizar_lista_chamados(query, status_filtro=None):
@@ -92,7 +96,8 @@ async def _renderizar_lista_chamados(query, status_filtro=None):
 
     botoes.append([InlineKeyboardButton("🔙 Voltar", callback_data="adm_voltar")])
 
-    await _editar(query, texto, reply_markup=..., parse_mode=...)
+    teclado = InlineKeyboardMarkup(botoes)
+    await _editar(query, texto, reply_markup=teclado, parse_mode="Markdown")
 
 async def callback_listar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -124,7 +129,7 @@ async def callback_estatisticas(update: Update, context: ContextTypes.DEFAULT_TY
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("🔙 Voltar", callback_data="adm_voltar")]
         ]),
-        parse_mode="Markdown"
+        parse_mode="HTML"
     )
 
 
@@ -132,9 +137,9 @@ async def callback_voltar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     await query.edit_message_text(
-        "🏛️ *Central Admin VigiaSaúde*\nEscolha uma opção:",
+        "🏛️ <b>Central Admin VigiaSaúde</b>\nEscolha uma opção:",
         reply_markup=_teclado_menu(),
-        parse_mode="Markdown"
+        parse_mode="HTML"
     )
 
 
@@ -161,27 +166,32 @@ async def callback_ver_chamado(update: Update, context: ContextTypes.DEFAULT_TYP
         )
         return
 
-    nome = chamado.get("nome_usuario") or chamado.get("chat_id") or "?"
-    msg_usuario = (chamado.get("mensagem") or "(sem mensagem)").strip()
+    nome = escape(str(chamado.get("nome_usuario") or chamado.get("chat_id") or "?"))
+    chat_id = escape(str(chamado.get("chat_id") or "?"))
+    status = escape(str(chamado.get("status") or "?"))
+    prioridade = escape(str(chamado.get("prioridade") or "-"))
+    created_at = escape(str(chamado.get("created_at") or "-"))
+    msg_usuario = escape((chamado.get("mensagem") or "(sem mensagem)").strip())
 
     texto = (
-        f"📌 CHAMADO #{chamado['id']}\n"
+        f"📌 <b>CHAMADO #{chamado['id']}</b>\n"
         f"━━━━━━━━━━━━━━━━━━━\n"
         f"👤 {nome}\n"
-        f"🆔 {chamado.get('chat_id')}\n"
-        f"🏷️ {chamado.get('status')}\n"
-        f"⚡ {chamado.get('prioridade')}\n"
-        f"🕐 {chamado.get('created_at')}\n"
+        f"🆔 {chat_id}\n"
+        f"🏷️ {status}\n"
+        f"⚡ {prioridade}\n"
+        f"🕐 {created_at}\n"
         f"━━━━━━━━━━━━━━━━━━━\n"
-        f"💬 *Mensagem do usuário:*\n\n"
-        f"_{msg_usuario}_"
+        f"💬 <b>Mensagem do usuário:</b>\n\n"
+        f"<i>{msg_usuario}</i>"
     )
 
     if chamado.get("resposta_admin"):
+        resposta = escape(str(chamado["resposta_admin"]))
         texto += (
             f"\n\n━━━━━━━━━━━━━━━━━━━\n"
-            f"✅ *Sua resposta:*\n\n"
-            f"_{chamado['resposta_admin']}_"
+            f"✅ <b>Sua resposta:</b>\n\n"
+            f"<i>{resposta}</i>"
         )
 
     botoes = [
@@ -192,9 +202,10 @@ async def callback_ver_chamado(update: Update, context: ContextTypes.DEFAULT_TYP
 
     await query.edit_message_text(
         texto,
+        parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(botoes),
-        parse_mode="Markdown"
     )
+    context.user_data["_em_fluxo_admin"] = "responder_chamado"
 
 def _buscar_chamado_por_id(chamado_id: int) -> dict | None:
     res = supabase.table("chamados_suporte").select("*").eq("id", chamado_id).execute()
@@ -224,7 +235,6 @@ async def callback_responder(update: Update, context: ContextTypes.DEFAULT_TYPE)
 async def callback_cancelar_resposta(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    context.user_data.pop("respondendo_chamado", None)
 
     chamado_id = int(query.data.replace("adm_cancelar_resp_", ""))
 
@@ -279,13 +289,16 @@ async def receber_resposta_admin(update: Update, context: ContextTypes.DEFAULT_T
 
     chamado_id = context.user_data.get("respondendo_chamado")
     texto = update.message.text
-    context.user_data.pop("respondendo_chamado", None)
 
     chamado = _buscar_chamado_por_id(chamado_id)
     if not chamado:
         await update.message.reply_text("❌ Chamado não encontrado.")
-        return ConversationHandler.END
 
+            # ✅ Limpa o flag SÓ no final (evita que a IA processe a mensagem em paralelo)
+    context.user_data.pop("respondendo_chamado", None)
+    context.user_data.pop("_em_fluxo_admin", None)
+    return ConversationHandler.END
+    
     # Salva no banco
     await responder_chamado(chamado_id, texto, str(update.effective_user.id))
 
@@ -332,6 +345,8 @@ async def receber_resposta_admin(update: Update, context: ContextTypes.DEFAULT_T
         reply_markup=InlineKeyboardMarkup(botoes),
     )
 
+    # ✅ Limpa o flag DEPOIS de tudo (evita que o processar_mensagem_geral capture)
+    context.user_data.pop("respondendo_chamado", None)
     return ConversationHandler.END
 
 

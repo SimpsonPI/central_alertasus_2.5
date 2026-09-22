@@ -10,3 +10,12 @@ __pycache__/
 .vscode/
 .idea/
 .DS_Store
+.venv/
+
+__pycache__/
+
+*.pyc
+
+.env
+
+main_backup.py

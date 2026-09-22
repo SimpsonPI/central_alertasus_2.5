@@ -37,7 +37,7 @@ Após cadastrar, o usuário deve acessar o menu e escolher:
 - /excluir - Excluir regulação.
 
 ## Atendimento
-- Email de suporte: suporteVigiaSaude@gmail.com
+- Email de suporte: suportevigiasaude@gmail.com
 - Para suporte humano, o usuário pode solicitar atendimento no menu.
 
 ## Perguntas Frequentes (FAQ)

@@ -1,4 +1,10 @@
-# database_atendimento.py
+import os
+from pathlib import Path
+from dotenv import load_dotenv
+from supabase import create_client, Client
+
+load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env", override=True)
+
 import os
 import logging
 from datetime import datetime, timezone

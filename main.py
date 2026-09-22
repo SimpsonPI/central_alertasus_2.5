@@ -35,6 +35,7 @@ from handler_atendimento import (
     ver_meus_chamados,
     comando_ver_chamados,
     comando_responder_chamado,
+    comando_finalizar_chamado,
     cancelar_atendimento,
     callback_email_suporte,
     processar_mensagem_geral,
@@ -92,6 +93,7 @@ async def configurar_comandos(app):
         BotCommand("faq", "Consultar FAQ automático"),
         BotCommand("atendimento", "Falar com atendente humano"),
         BotCommand("suporte", "Informações de suporte"),
+        BotCommand("planos", "Ver planos e assinaturas"),
     ]
 
     # Aplica a todos os chats privados
@@ -212,7 +214,9 @@ def main():
     app.add_handler(CommandHandler("suporte", comando_suporte))
     app.add_handler(CommandHandler("chamados", comando_ver_chamados))
     app.add_handler(CommandHandler("responder", comando_responder_chamado))
+    app.add_handler(CommandHandler("finalizar", comando_finalizar_chamado))
     app.add_handler(CommandHandler("admin", menu_admin))
+    app.add_handler(CommandHandler("planos", callback_planos))
 
         # Conversation para responder chamado (admin)
     conv_resposta_admin = ConversationHandler(

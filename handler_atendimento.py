@@ -1,12 +1,11 @@
 # handler_atendimento.py
 import logging
 import re
+from datetime import datetime, time as dtime      # ← ADICIONE ESTA LINHA
+from zoneinfo import ZoneInfo
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, ConversationHandler
 from ia_atendimento import gerar_resposta_ia
-from datetime import datetime
-from zoneinfo import ZoneInfo
-
 from database_atendimento import (
     buscar_faq_por_palavras_chave,
     registrar_chamado_suporte,
@@ -17,6 +16,87 @@ from database_atendimento import (
     buscar_estatisticas_admin,
 )
 from database import supabase
+
+def verificar_horario_comercial() -> dict:
+    """
+    Retorna um dict com:
+      - dentro_horario: bool
+      - mensagem: str (mensagem contextual para o usuário)
+    """
+    from datetime import datetime, time as dtime
+
+    try:
+        from zoneinfo import ZoneInfo
+        agora = datetime.now(ZoneInfo("America/Sao_Paulo"))
+    except Exception:
+        agora = datetime.now()
+
+    dia_semana = agora.weekday()  # 0=segunda ... 6=domingo
+    hora_atual = agora.time()
+
+    # Segunda a Sexta: 08h às 18h
+    if dia_semana <= 4:
+        if dtime(8, 0) <= hora_atual < dtime(18, 0):
+            return {
+                "dentro_horario": True,
+                "mensagem": (
+                    "✅ Estamos <b>em horário de atendimento</b>. "
+                    "Nossa equipe responderá o mais breve possível."
+                )
+            }
+        else:
+            return {
+                "dentro_horario": False,
+                "mensagem": (
+                    "⏰ <b>Estamos fora do horário de atendimento.</b>\n\n"
+                    "Seu chamado será registrado e nossa equipe responderá "
+                    "no próximo horário útil:\n"
+                    "• Segunda a Sexta: 08h às 18h\n"
+                    "• Sábado: 08h às 12h"
+                )
+            }
+
+    # Sábado: 08h às 12h
+    elif dia_semana == 5:
+        if dtime(8, 0) <= hora_atual < dtime(12, 0):
+            return {
+                "dentro_horario": True,
+                "mensagem": (
+                    "✅ Estamos <b>em horário de atendimento</b>. "
+                    "Nossa equipe responderá o mais breve possível."
+                )
+            }
+        else:
+            return {
+                "dentro_horario": False,
+                "mensagem": (
+                    "⏰ <b>Estamos fora do horário de atendimento (sábado).</b>\n\n"
+                    "Nosso atendimento no sábado é das 08h às 12h. "
+                    "Seu chamado será registrado e respondido no próximo horário útil."
+                )
+            }
+
+    # Domingo
+    else:
+        return {
+            "dentro_horario": False,
+            "mensagem": (
+                "⏰ <b>Hoje é domingo e não temos atendimento.</b>\n\n"
+                "Seu chamado será registrado e nossa equipe responderá "
+                "na segunda-feira, a partir das 08h.\n\n"
+                "Se for urgente, você pode enviar um email para "
+                "suportevigiasaude@gmail.com."
+            )
+        }
+
+
+try:
+    from config import ADMIN_CHAT_ID
+    ADMIN_ID = ADMIN_CHAT_ID or 5242040324
+except ImportError:
+    ADMIN_ID = 5242040324
+
+logger = logging.getLogger(__name__)
 
 try:
     from config import ADMIN_CHAT_ID
@@ -91,27 +171,83 @@ async def menu_atendimento(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif update.message:
         await update.message.reply_text(texto, parse_mode="HTML", reply_markup=teclado)
 
+def _status_horario() -> str:
+    """Retorna '🟢 Aberto agora' ou '🔴 Fechado agora'."""
+    try:
+        agora = datetime.now(ZoneInfo("America/Fortaleza"))
+    except Exception:
+        agora = datetime.now()
+    
+    dia = agora.weekday()  # 0=seg, 6=dom
+    hora = agora.hour
+    
+    aberto = False
+    if dia <= 4 and 8 <= hora < 18:      # Seg-Sex: 08h-18h
+        aberto = True
+    elif dia == 5 and 8 <= hora < 12:    # Sábado: 08h-12h
+        aberto = True
+    
+    return "🟢 <b>Aberto agora</b>" if aberto else "🔴 <b>Fechado agora</b>"
 
 async def comando_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Boas-vindas iniciais - botões de apresentação e descoberta."""
-    nome = update.effective_user.first_name or "usuário"
+    """Boas-vindas iniciais — mensagem diferenciada para admin e usuário comum."""
+    from config import ADMIN_CHAT_ID as ADMIN_ID
+    user = update.effective_user
+    nome = user.first_name or "usuário"
+    eh_admin = (user.id == ADMIN_ID)
 
-    teclado = InlineKeyboardMarkup([
-        [InlineKeyboardButton("📖 Como funciona o VigiaSaúde?", callback_data="sobre_vigia")],
-        [InlineKeyboardButton("❓ Perguntas Frequentes", callback_data="atendimento_faq")],
-        [InlineKeyboardButton("👤 Falar com Atendente", callback_data="atendimento_humanizado")],
-        [InlineKeyboardButton("🏠 Ir para o Menu Principal", callback_data="atendimento_menu")],
-    ])
+    status = _status_horario()
 
-    texto = (
-        f"👋 Olá, <b>{nome}</b>! Bem-vindo(a) ao <b>VigiaSaúde</b>!\n\n"
-        "Sou o <b>VS</b>, seu assistente virtual. Aqui você pode:\n"
-        "• Acompanhar o status das suas regulações\n"
-        "• Tirar dúvidas sobre cadastro e planos\n"
-        "• Consultar horários e informações\n\n"
-        "⚠️ <i>Não realizo agendamento de consultas ou exames.</i>\n\n"
-        "👉 Se é a primeira vez aqui, comece por <b>\"Como funciona o VigiaSaúde?\"</b>."
-    )
+    if eh_admin:
+        # ═══════════ MENSAGEM DO ADMIN ═══════════
+        teclado = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🏛️ Central Admin", callback_data="adm_todos")],
+            [InlineKeyboardButton("📊 Estatísticas", callback_data="adm_stats")],
+            [InlineKeyboardButton("📖 Como funciona o VigiaSaúde?", callback_data="sobre_vigia")],
+            [InlineKeyboardButton("🏠 Ir para o Menu Principal", callback_data="atendimento_menu")],
+        ])
+
+        texto = (
+            f"🕐 <b>HORÁRIO DE ATENDIMENTO</b>  {status}\n"
+            f"• Segunda a Sexta: <b>08h às 18h</b>\n"
+            f"• Sábado: <b>08h às 12h</b>\n"
+            f"• Domingo: <b>Fechado</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━\n\n"
+
+            f"👑 <b>PAINEL DO ADMINISTRADOR</b>\n\n"
+            f"Olá, <b>{nome}</b>! Você está logado como <b>administrador</b>.\n\n"
+            "🛠️ <b>Ferramentas disponíveis:</b>\n"
+            "• <code>/admin</code> — Painel central de controle\n"
+            "• <code>/chamados</code> — Ver chamados abertos\n"
+            "• <code>/responder</code> — Responder a um chamado\n"
+            "• <code>/enviar_midia</code> — Enviar imagem/documento\n"
+            "• <code>/criar_enquete</code> — Criar enquete\n\n"
+            "📌 <i>Use os botões abaixo para acesso rápido.</i>"
+        )
+    else:
+        # ═══════════ MENSAGEM DO USUÁRIO COMUM ═══════════
+        teclado = InlineKeyboardMarkup([
+            [InlineKeyboardButton("📖 Como funciona o VigiaSaúde?", callback_data="sobre_vigia")],
+            [InlineKeyboardButton("❓ Perguntas Frequentes", callback_data="atendimento_faq")],
+            [InlineKeyboardButton("👤 Falar com Atendente", callback_data="atendimento_humanizado")],
+            [InlineKeyboardButton("🏠 Ir para o Menu Principal", callback_data="atendimento_menu")],
+        ])
+
+        texto = (
+            f"🕐 <b>HORÁRIO DE ATENDIMENTO</b>  {status}\n"
+            f"• Segunda a Sexta: <b>08h às 18h</b>\n"
+            f"• Sábado: <b>08h às 12h</b>\n"
+            f"• Domingo: <b>Fechado</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━\n\n"
+
+            f"👋 Olá, <b>{nome}</b>! Bem-vindo(a) ao <b>VigiaSaúde</b>!\n\n"
+            "Sou o <b>VS</b>, seu assistente virtual. Aqui você pode:\n"
+            "• Acompanhar o status das suas regulações\n"
+            "• Tirar dúvidas sobre cadastro e planos\n"
+            "• Consultar horários e informações\n\n"
+            "⚠️ <i>Não realizo agendamento de consultas ou exames.</i>\n\n"
+            "👉 Se é a primeira vez aqui, comece por <b>\"Como funciona o VigiaSaúde?\"</b>."
+        )
 
     if update.message:
         await update.message.reply_text(texto, parse_mode="HTML", reply_markup=teclado)
@@ -180,7 +316,14 @@ async def iniciar_faq(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("⬅️ Voltar", callback_data="atendimento_menu")]
         ])
         
+    try:
         await query.edit_message_text(texto, parse_mode="HTML", reply_markup=teclado)
+    except Exception as e:
+        if "Message is not modified" in str(e):
+            # Usuário clicou 2x no mesmo botão — ignora silenciosamente
+            pass
+        else:
+            logger.error(f"Erro em callback_planos: {e}")
     else:
         texto = (
             "📚 <b>FAQ Automático - VigiaSaude</b>\n\n"
@@ -551,7 +694,7 @@ async def comando_responder_chamado(update: Update, context: ContextTypes.DEFAUL
 
         await responder_chamado(chamado_id, resposta, user_id)
 
-        # Botão para o usuário responder dentro do próprio chat
+        # Botão para o usuário responder
         teclado_usuario = InlineKeyboardMarkup([
             [InlineKeyboardButton("✍️ Responder à Central", callback_data=f"responder_chamado_{chamado_id}")]
         ])
@@ -570,7 +713,23 @@ async def comando_responder_chamado(update: Update, context: ContextTypes.DEFAUL
 
         await registrar_historico(chat_id_usuario, "resposta_admin", resposta, "admin")
 
-        await update.message.reply_text(f"✅ Resposta enviada ao usuário do chamado #{chamado_id}.")
+        # ✅ AGORA: mostra botões de ação para o ADMIN (finalizar, ver, etc)
+        teclado_admin = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("✅ Finalizar Chamado", callback_data=f"adm_finalizar_{chamado_id}"),
+                InlineKeyboardButton("👁️ Ver Chamado", callback_data=f"adm_ver_{chamado_id}"),
+            ],
+            [
+                InlineKeyboardButton("📋 Ver Todos", callback_data="adm_todos"),
+            ],
+        ])
+
+        await update.message.reply_text(
+            f"✅ <b>Resposta enviada ao usuário do chamado #{chamado_id}.</b>\n\n"
+            f"O que deseja fazer agora?",
+            parse_mode="HTML",
+            reply_markup=teclado_admin
+        )
 
     except Exception as e:
         logger.error(f"Erro ao responder chamado: {e}")
@@ -696,19 +855,15 @@ async def faq_governo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ==========================================
 
 async def processar_mensagem_geral(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Se admin está no meio de uma resposta de chamado, NÃO trata como mensagem comum
+    """Processa qualquer mensagem enviada pelo usuário e tenta responder com IA."""
+    # 🚩 Se admin está em um fluxo ativo, NÃO trata como mensagem comum
     if context.user_data.get("respondendo_chamado"):
+        return
+    if context.user_data.get("_em_fluxo_admin"):
         return
 
-    texto_usuario = update.message.text
-    logger.info(f"📩 Mensagem recebida: {texto_usuario}")
-    # ... resto da função
-    
-    # Se admin está respondendo chamado, não trata como mensagem comum
-    if context.user_data.get("respondendo_chamado"):
+    if not update.message or not update.message.text:
         return
-    
-    # ... resto da função original
 
     texto_usuario = update.message.text
     logger.info(f"📩 Mensagem recebida: {texto_usuario}")
@@ -717,18 +872,17 @@ async def processar_mensagem_geral(update: Update, context: ContextTypes.DEFAULT
     if texto_usuario.startswith("/"):
         return
 
-    # Verifica se o usuário está em um fluxo específico (cadastro, correção, etc.)
+    # Verifica se o usuário está em um fluxo específico
     if context.user_data.get("modo_atendimento") == "humanizado":
         return
 
     # 1. Busca contexto do usuário no Supabase
-        # 1. Busca contexto do usuário no Supabase
     chat_id = str(update.effective_user.id)
     contexto_usuario = await buscar_contexto_usuario(chat_id)
     is_admin = (update.effective_user.id == ADMIN_ID)
 
     # 1.1 Se for admin, busca estatísticas do sistema
-    if is_admin:  # noqa: F821
+    if is_admin:
         try:
             stats = await buscar_estatisticas_admin()
             contexto_usuario.update(stats)
@@ -739,9 +893,8 @@ async def processar_mensagem_geral(update: Update, context: ContextTypes.DEFAULT
     resposta_faq = await buscar_faq_por_palavras_chave(texto_usuario)
 
     # 3. Se não encontrou no FAQ, tenta usar a IA com contexto
-        # 3. Se não encontrou no FAQ, tenta usar a IA com contexto
     if not resposta_faq:
-            resposta_ia = await gerar_resposta_ia(
+        resposta_ia = await gerar_resposta_ia(
             texto_usuario,
             {
                 "nome_usuario": update.effective_user.first_name,
@@ -750,8 +903,8 @@ async def processar_mensagem_geral(update: Update, context: ContextTypes.DEFAULT
                 "is_admin": is_admin
             }
         )
-            if resposta_ia:
-                resposta_faq = {"resposta": resposta_ia}
+        if resposta_ia:
+            resposta_faq = {"resposta": resposta_ia}
 
     # 4. Se encontrou resposta (FAQ ou IA), envia
     if resposta_faq:
@@ -778,7 +931,7 @@ async def processar_mensagem_geral(update: Update, context: ContextTypes.DEFAULT
             except Exception as e2:
                 logger.error(f"Falha ao enviar resposta (tentativa 2): {e2}")
 
-        # Oferece opções adicionais (HTML fixo, sem risco)
+        # Oferece opções adicionais
         try:
             teclado = InlineKeyboardMarkup([
                 [
@@ -852,17 +1005,15 @@ async def sobre_vigia_saude(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def callback_planos(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Exibe informações sobre planos."""
-    query = update.callback_query
-    await query.answer()
-
+    """Exibe informações sobre planos (funciona via comando e via botão)."""
+    
     texto = (
         "💳 <b>Planos VigiaSaúde</b>\n\n"
         "• <b>Degustação (Grátis)</b> – 7 dias de validade\n"
         "• <b>Trimestral</b> – R$ 9,99\n"
         "• <b>Semestral</b> – R$ 14,99\n\n"
         "💠 <b>Pagamento:</b> Pix (QR Code ou Copia e Cola)\n\n"
-        "Para assinar, utilize o comando <b>/planos</b> ou entre em contato com o suporte."
+        "Para assinar, entre em contato com o suporte abaixo."
     )
 
     teclado = InlineKeyboardMarkup([
@@ -870,7 +1021,22 @@ async def callback_planos(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("⬅️ Menu Principal", callback_data="atendimento_menu")],
     ])
 
-    await query.edit_message_text(texto, parse_mode="HTML", reply_markup=teclado)
+    if update.callback_query:
+        await update.callback_query.answer()
+        try:
+            await update.callback_query.edit_message_text(
+                texto, parse_mode="HTML", reply_markup=teclado
+            )
+        except Exception as e:
+            if "Message is not modified" in str(e):
+                return
+            await update.callback_query.message.reply_text(
+                texto, parse_mode="HTML", reply_markup=teclado
+            )
+    elif update.message:
+        await update.message.reply_text(
+            texto, parse_mode="HTML", reply_markup=teclado
+        )
 
 async def iniciar_resposta_usuario(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Usuário clicou em 'Responder à Central' - inicia conversa para receber a resposta."""
@@ -942,78 +1108,6 @@ async def receber_resposta_usuario(update: Update, context: ContextTypes.DEFAULT
     return ConversationHandler.END
 
     from datetime import datetime, time as dtime
-
-def verificar_horario_comercial() -> dict:
-    """
-    Retorna um dict com:
-      - dentro_horario: bool
-      - mensagem: str (mensagem contextual para o usuário)
-    Considera horário de Brasília (America/Sao_Paulo).
-    """
-    try:
-        from zoneinfo import ZoneInfo
-        agora = datetime.now(ZoneInfo("America/Sao_Paulo"))
-    except Exception:
-        # Fallback: se zoneinfo não estiver disponível, usa hora local
-        agora = datetime.now()
-
-    dia_semana = agora.weekday()  # 0=segunda ... 6=domingo
-    hora_atual = agora.time()
-
-    # Segunda a Sexta: 08h às 18h
-    if dia_semana <= 4:
-        if dtime(8, 0) <= hora_atual < dtime(18, 0):
-            return {
-                "dentro_horario": True,
-                "mensagem": (
-                    "✅ Estamos <b>em horário de atendimento</b>. "
-                    "Nossa equipe responderá o mais breve possível."
-                )
-            }
-        else:
-            return {
-                "dentro_horario": False,
-                "mensagem": (
-                    "⏰ <b>Estamos fora do horário de atendimento.</b>\n\n"
-                    "Seu chamado será registrado e nossa equipe responderá "
-                    "no próximo horário útil:\n"
-                    "• Segunda a Sexta: 08h às 18h\n"
-                    "• Sábado: 08h às 12h"
-                )
-            }
-
-    # Sábado: 08h às 12h
-    elif dia_semana == 5:
-        if dtime(8, 0) <= hora_atual < dtime(12, 0):
-            return {
-                "dentro_horario": True,
-                "mensagem": (
-                    "✅ Estamos <b>em horário de atendimento</b>. "
-                    "Nossa equipe responderá o mais breve possível."
-                )
-            }
-        else:
-            return {
-                "dentro_horario": False,
-                "mensagem": (
-                    "⏰ <b>Estamos fora do horário de atendimento (sábado).</b>\n\n"
-                    "Nosso atendimento no sábado é das 08h às 12h. "
-                    "Seu chamado será registrado e respondido no próximo horário útil."
-                )
-            }
-
-    # Domingo
-    else:
-        return {
-            "dentro_horario": False,
-            "mensagem": (
-                "⏰ <b>Hoje é domingo e não temos atendimento.</b>\n\n"
-                "Seu chamado será registrado e nossa equipe responderá "
-                "na segunda-feira, a partir das 08h.\n\n"
-                "Se for urgente, você pode enviar um email para "
-                "suportevigiasaude@gmail.com."
-            )
-        }
 
     # ==========================================
 # ENVIO DE MÍDIA (ADMIN) - POSTS E DOCUMENTOS
@@ -1197,3 +1291,75 @@ async def cancelar_envio_midia(update: Update, context: ContextTypes.DEFAULT_TYP
 
     await query.edit_message_text("❌ Envio cancelado.")
     return ConversationHandler.END
+
+async def comando_finalizar_chamado(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Comando para admin finalizar um chamado diretamente pelo ID."""
+    user_id = update.effective_user.id
+
+    if user_id != ADMIN_ID:
+        await update.message.reply_text("⛔ Acesso restrito a administradores.")
+        return
+
+    if not context.args:
+        await update.message.reply_text(
+            "⚠️ Uso correto: <code>/finalizar [ID_CHAMADO]</code>\n"
+            "Exemplo: <code>/finalizar 45</code>",
+            parse_mode="HTML"
+        )
+        return
+
+    try:
+        chamado_id = int(context.args[0])
+    except ValueError:
+        await update.message.reply_text("❌ ID inválido.")
+        return
+
+    try:
+        # Busca o chamado
+        res = supabase.table("chamados_suporte").select("*").eq("id", chamado_id).execute()
+        if not res.data:
+            await update.message.reply_text(f"❌ Chamado #{chamado_id} não encontrado.")
+            return
+
+        chamado = res.data[0]
+
+        # Atualiza status
+        supabase.table("chamados_suporte").update({
+            "status": "fechado"
+        }).eq("id", chamado_id).execute()
+
+        # Notifica o usuário
+        try:
+            await context.bot.send_message(
+                chat_id=chamado["chat_id"],
+                text=(
+                    f"✅ <b>Seu chamado #{chamado_id} foi finalizado.</b>\n\n"
+                    "Obrigado pelo contato! Se precisar, é só chamar de novo."
+                ),
+                parse_mode="HTML"
+            )
+        except Exception:
+        pass
+
+        await update.message.reply_text(
+            f"✅ <b>Chamado #{chamado_id} finalizado com sucesso.</b>",
+            parse_mode="HTML"
+        )
+
+    except Exception as e:
+        logger.error(f"Erro ao finalizar chamado: {e}")
+        await update.message.reply_text(f"❌ Erro ao finalizar chamado: {e}")
+
+        __all__ = [
+    "menu_atendimento",
+    "iniciar_faq",
+    "processar_pergunta_faq",
+    "iniciar_atendimento_humanizado",
+    "processar_mensagem_humanizado",
+    "ver_meus_chamados",
+    "comando_ver_chamados",
+    "comando_responder_chamado",
+    "comando_finalizar_chamado",   # ← ADICIONE
+    "cancelar_atendimento",
+    "AGUARDANDO_MENSAGEM_CHAMADO"
+]

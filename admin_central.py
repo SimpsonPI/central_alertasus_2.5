@@ -1,6 +1,7 @@
 from dotenv import load_dotenv
 load_dotenv()
 
+from html import escape
 from datetime import datetime, timezone
 from database_atendimento import (
     listar_chamados_abertos,
@@ -62,30 +63,35 @@ async def obter_chamados_pendentes(status_filtro: str | None = None) -> list[dic
 
 
 def formatar_lista_chamados(chamados: list[dict], max_itens: int = 20) -> str:
-    """Formata a lista para o Telegram (Markdown)."""
+    """Formata a lista para o Telegram (HTML)."""
     if not chamados:
-        return "📭 *Nenhum chamado pendente no momento.*"
+        return "📭 <b>Nenhum chamado pendente no momento.</b>"
 
-    linhas = [f"📋 *CHAMADOS PENDENTES* ({len(chamados)})\n"]
+    linhas = [f"📋 <b>CHAMADOS PENDENTES</b> ({len(chamados)})\n"]
 
     for ch in chamados[:max_itens]:
         emoji = STATUS_EMOJI.get(ch.get("status"), "❔")
         prio = PRIORIDADE_EMOJI.get(ch.get("prioridade", "normal"), "➖")
         tempo = _tempo_relativo(ch.get("created_at"))
-        nome = ch.get("nome_usuario") or ch.get("chat_id")
 
-        # Prévia da mensagem
+        # Escapa dados que vêm do usuário para não quebrar o HTML
+        nome = escape(str(ch.get("nome_usuario") or ch.get("chat_id") or "?"))
+
+        # Prévia da mensagem (escapada)
         msg = (ch.get("mensagem") or "").replace("\n", " ")
-        previa = (msg[:50] + "…") if len(msg) > 50 else msg
+        previa_bruta = (msg[:50] + "…") if len(msg) > 50 else msg
+        previa = escape(previa_bruta)
+
+        status_esc = escape(str(ch.get("status") or "?"))
 
         linhas.append(
-            f"{emoji} *#{ch['id']}* {prio} — {nome}\n"
+            f"{emoji} <b>#{ch['id']}</b> {prio} — {nome}\n"
             f"   💬 {previa}\n"
-            f"   ⏱️ {tempo} • status: `{ch.get('status')}`\n"
+            f"   ⏱️ {tempo} • status: <code>{status_esc}</code>\n"
         )
 
     if len(chamados) > max_itens:
-        linhas.append(f"\n_…e mais {len(chamados) - max_itens} chamados._")
+        linhas.append(f"\n<i>…e mais {len(chamados) - max_itens} chamados.</i>")
 
     return "\n".join(linhas)
 
@@ -106,11 +112,11 @@ async def estatisticas_chamados() -> dict:
 
 def formatar_estatisticas(stats: dict) -> str:
     return (
-        "📊 *ESTATÍSTICAS DE CHAMADOS*\n\n"
-        f"🟢 Abertos: *{stats['aberto']}*\n"
-        f"🔵 Em andamento: *{stats['em_andamento']}*\n"
-        f"✅ Respondidos: *{stats['respondido']}*\n"
-        f"⚪ Outros: *{stats['outros']}*\n"
+        "📊 <b>ESTATÍSTICAS DE CHAMADOS</b>\n\n"
+        f"🟢 Abertos: <b>{stats['aberto']}</b>\n"
+        f"🔵 Em andamento: <b>{stats['em_andamento']}</b>\n"
+        f"✅ Respondidos: <b>{stats['respondido']}</b>\n"
+        f"⚪ Outros: <b>{stats['outros']}</b>\n"
         f"━━━━━━━━━━━━━━━\n"
-        f"📌 Total: *{stats['total']}*"
+        f"📌 Total: <b>{stats['total']}</b>"
     )
