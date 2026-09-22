@@ -1339,7 +1339,7 @@ async def comando_finalizar_chamado(update: Update, context: ContextTypes.DEFAUL
                 parse_mode="HTML"
             )
         except Exception:
-        pass
+            pass
 
         await update.message.reply_text(
             f"✅ <b>Chamado #{chamado_id} finalizado com sucesso.</b>",
@@ -1350,7 +1350,9 @@ async def comando_finalizar_chamado(update: Update, context: ContextTypes.DEFAUL
         logger.error(f"Erro ao finalizar chamado: {e}")
         await update.message.reply_text(f"❌ Erro ao finalizar chamado: {e}")
 
-        __all__ = [
+
+
+__all__ = [
     "menu_atendimento",
     "iniciar_faq",
     "processar_pergunta_faq",
