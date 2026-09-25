@@ -43,20 +43,19 @@ from handler_atendimento import (
     receber_resposta_usuario,
     AGUARDANDO_MENSAGEM_CHAMADO,
     AGUARDANDO_RESPOSTA_USUARIO,
+    # NOVOS:
+    callback_iniciar_resposta,
+    receber_resposta_rapida,
+    callback_finalizar_chamado,
+    callback_ver_detalhes,
+    cancelar_resposta_rapida,
+    AGUARDANDO_RESPOSTA_ADMIN_RAPIDA,
     faq_cadastrar,
     faq_consultar,
     faq_id,
     faq_alterar,
     faq_planos,
     faq_governo,
-    iniciar_envio_midia,
-    receber_midia_admin,
-    receber_destino_admin,
-    confirmar_envio_midia,
-    cancelar_envio_midia,
-    AGUARDANDO_MIDIA_ADMIN,
-    AGUARDANDO_DESTINO_ADMIN,
-    AGUARDANDO_CONFIRMACAO_ENVIO,
 )
 
 from admin_handlers import (
@@ -178,34 +177,28 @@ def main():
         per_message=False,
     )
 
-    # ConversationHandler - Envio de mídia (admin)
-        # ConversationHandler - Envio de mídia (admin)
-    conv_envio_midia = ConversationHandler(
+
+    # ─── ConversationHandler: Resposta rápida admin ───
+    conv_resposta_rapida = ConversationHandler(
         entry_points=[
-            CommandHandler("enviar_midia", iniciar_envio_midia),
-            CommandHandler("enviar_imagem", iniciar_envio_midia),
-            CommandHandler("enviar_documento", iniciar_envio_midia),
+            CallbackQueryHandler(callback_iniciar_resposta, pattern="^adminresp_\\d+$"),
         ],
         states={
-            AGUARDANDO_MIDIA_ADMIN: [
-                MessageHandler(
-                    filters.PHOTO | filters.Document.ALL | filters.VIDEO,
-                    receber_midia_admin
-                ),
-            ],
-            AGUARDANDO_DESTINO_ADMIN: [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, receber_destino_admin)
-            ],
-            AGUARDANDO_CONFIRMACAO_ENVIO: [
-                CallbackQueryHandler(confirmar_envio_midia, pattern="^confirmar_envio_midia$"),
-                CallbackQueryHandler(cancelar_envio_midia, pattern="^cancelar_envio_midia$"),
+            AGUARDANDO_RESPOSTA_ADMIN_RAPIDA: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, receber_resposta_rapida),
             ],
         },
         fallbacks=[
-            CommandHandler("cancelar", cancelar_atendimento),
+            CommandHandler("cancelar", cancelar_resposta_rapida),
         ],
         per_message=False,
     )
+    app.add_handler(conv_resposta_rapida)
+
+    # ─── Callbacks rápidos ───
+    app.add_handler(CallbackQueryHandler(callback_finalizar_chamado, pattern="^adminfim_\\d+$"))
+    app.add_handler(CallbackQueryHandler(callback_ver_detalhes, pattern="^adminver_\\d+$"))
+    app.add_handler(CallbackQueryHandler(lambda u, c: None, pattern="^noop$"))
 
     # Comandos principais
     app.add_handler(CommandHandler("start", comando_start))
@@ -236,7 +229,6 @@ def main():
     app.add_handler(conv_resposta_admin)
     app.add_handler(conv_atendimento_humanizado)
     app.add_handler(conv_resposta_usuario)
-    app.add_handler(conv_envio_midia)
 
     # Callbacks gerais
     app.add_handler(CallbackQueryHandler(menu_atendimento, pattern="^atendimento_menu$"))

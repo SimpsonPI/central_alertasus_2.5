@@ -11,7 +11,7 @@ O usuário deve usar o comando /cadastrar_nova. O passo a passo é:
 4. Informe o celular com DDD.
 5. Informe a data de nascimento (DD/MM/AAAA).
 6. Informe o ID da Regulação.
-7. Informe o CBO/Especialidade.
+7. Informe o Especialidade.
 8. Informe o Procedimento (Exame ou Consulta).
 9. Aceite o Termo de Consentimento LGPD.
 **Não é necessário anexar documentos (CPF, RG).**

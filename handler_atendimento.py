@@ -1,5 +1,6 @@
 # handler_atendimento.py
 import logging
+import asyncio
 import re
 from datetime import datetime, time as dtime      # ← ADICIONE ESTA LINHA
 from zoneinfo import ZoneInfo
@@ -16,6 +17,11 @@ from database_atendimento import (
     buscar_estatisticas_admin,
 )
 from database import supabase
+
+# Estados da conversa
+AGUARDANDO_MENSAGEM_CHAMADO = 1
+AGUARDANDO_RESPOSTA_USUARIO = 2
+AGUARDANDO_RESPOSTA_ADMIN_RAPIDA = 3
 
 def verificar_horario_comercial() -> dict:
     """
@@ -286,7 +292,7 @@ async def iniciar_faq(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.callback_query:
         query = update.callback_query
         await query.answer()
-        
+
         texto = (
             "📚 <b>FAQ Automático - VigiaSaude</b>\n\n"
             "Digite abaixo sua dúvida que nossa IA tentará responder automaticamente.\n"
@@ -298,7 +304,7 @@ async def iniciar_faq(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "5️⃣ Planos e Assinaturas\n"
             "6️⃣ O VigiaSaude tem vínculo com o governo?"
         )
-        
+
         teclado = InlineKeyboardMarkup([
             [
                 InlineKeyboardButton("1️⃣ Cadastrar", callback_data="faq_cadastrar"),
@@ -315,22 +321,15 @@ async def iniciar_faq(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("👤 Falar com Humano", callback_data="atendimento_humanizado")],
             [InlineKeyboardButton("⬅️ Voltar", callback_data="atendimento_menu")]
         ])
-        
-    try:
+
         await query.edit_message_text(texto, parse_mode="HTML", reply_markup=teclado)
-    except Exception as e:
-        if "Message is not modified" in str(e):
-            # Usuário clicou 2x no mesmo botão — ignora silenciosamente
-            pass
-        else:
-            logger.error(f"Erro em callback_planos: {e}")
     else:
         texto = (
             "📚 <b>FAQ Automático - VigiaSaude</b>\n\n"
             "Digite abaixo sua dúvida que nossa IA tentará responder automaticamente.\n"
             "Ou clique em um dos tópicos abaixo:"
         )
-        
+
         teclado = InlineKeyboardMarkup([
             [
                 InlineKeyboardButton("1️⃣ Cadastrar", callback_data="faq_cadastrar"),
@@ -347,9 +346,9 @@ async def iniciar_faq(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("👤 Falar com Humano", callback_data="atendimento_humanizado")],
             [InlineKeyboardButton("⬅️ Voltar", callback_data="atendimento_menu")]
         ])
-        
+
         await update.message.reply_text(texto, parse_mode="HTML", reply_markup=teclado)
-    
+
     context.user_data["modo_atendimento"] = "faq"
 
 
@@ -474,6 +473,15 @@ async def processar_mensagem_humanizado(update: Update, context: ContextTypes.DE
 
         # Notifica o administrador
         try:
+            teclado_admin = InlineKeyboardMarkup([
+                [
+                    InlineKeyboardButton("✍️ Responder", callback_data=f"adminresp_{chamado_id}"),
+                    InlineKeyboardButton("✅ Finalizar", callback_data=f"adminfim_{chamado_id}"),
+                ],
+                [
+                    InlineKeyboardButton("👁️ Ver detalhes", callback_data=f"adminver_{chamado_id}"),
+                ],
+            ])
             await context.bot.send_message(
                 chat_id=ADMIN_ID,
                 text=(
@@ -482,12 +490,13 @@ async def processar_mensagem_humanizado(update: Update, context: ContextTypes.DE
                     f"👤 <b>Usuário:</b> {nome_usuario}\n"
                     f"🆔 <b>Telegram ID:</b> <code>{chat_id}</code>\n"
                     f"📝 <b>Mensagem:</b>\n{mensagem}\n\n"
-                    f"Use /responder <code>{chamado_id}</code> para responder."
+                    "👇 <b>Clique em ✍️ Responder para enviar a resposta.</b>"
                 ),
-                parse_mode="HTML"
+                parse_mode="HTML",
+                reply_markup=teclado_admin,
             )
         except Exception as e:
-            logger.error(f"Erro ao notificar admin: {e}")
+           logger.error(f"Erro ao notificar admin: {e}")
 
         # Confirma ao usuário
                 # Confirma ao usuário
@@ -516,14 +525,14 @@ async def processar_mensagem_humanizado(update: Update, context: ContextTypes.DE
                 "O que deseja fazer agora?",
                 reply_markup=teclado
             )
-    else:
-        # Se falhar ao registrar
-        logger.error(f"FALHA ao registrar chamado para {chat_id} - mensagem: {mensagem}")
-        if update.message:
-            await update.message.reply_text(
-                "❌ Ocorreu um erro ao registrar seu chamado.\n"
-                "Por favor, tente novamente ou contate: suportevigiasaude@gmail.com"
-            )
+        else:
+            # Se falhar ao registrar
+            logger.error(f"FALHA ao registrar chamado para {chat_id} - mensagem: {mensagem}")
+            if update.message:
+                await update.message.reply_text(
+                    "❌ Ocorreu um erro ao registrar seu chamado.\n"
+                    "Por favor, tente novamente ou contate: suportevigiasaude@gmail.com"
+                )
 
     return ConversationHandler.END
 
@@ -856,13 +865,14 @@ async def faq_governo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def processar_mensagem_geral(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Processa qualquer mensagem enviada pelo usuário e tenta responder com IA."""
-    # 🚩 Se admin está em um fluxo ativo, NÃO trata como mensagem comum
+    # 🚩 Admin NÃO usa IA no Central — usa o Admin Bot para isso
+    if update.effective_user.id == ADMIN_ID:
+        return
+
+    # 🚩 Se está em fluxo ativo, também NÃO processa
     if context.user_data.get("respondendo_chamado"):
         return
     if context.user_data.get("_em_fluxo_admin"):
-        return
-
-    if not update.message or not update.message.text:
         return
 
     texto_usuario = update.message.text
@@ -1046,6 +1056,7 @@ async def iniciar_resposta_usuario(update: Update, context: ContextTypes.DEFAULT
     # Extrai o ID do chamado do callback_data
     chamado_id = int(query.data.split("_")[-1])
     context.user_data["respondendo_chamado_id"] = chamado_id
+    context.user_data["_em_fluxo_admin"] = "responder_chamado"
     context.user_data["modo_atendimento"] = "respondendo_chamado"
 
     await query.edit_message_text(
@@ -1350,6 +1361,224 @@ async def comando_finalizar_chamado(update: Update, context: ContextTypes.DEFAUL
         logger.error(f"Erro ao finalizar chamado: {e}")
         await update.message.reply_text(f"❌ Erro ao finalizar chamado: {e}")
 
+# ==========================================
+# RESPOSTA RÁPIDA — VIA BOTÕES
+# ==========================================
+
+async def callback_iniciar_resposta(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Admin clicou em '✍️ Responder' — inicia modo de resposta."""
+    query = update.callback_query
+    await query.answer()
+
+    if update.effective_user.id != ADMIN_ID:
+        return
+
+    # Extrai ID do chamado
+    chamado_id = int(query.data.replace("adminresp_", ""))
+
+    # Salva no contexto
+    context.user_data["respondendo_chamado_id"] = chamado_id
+
+    # Edita a mensagem para indicar modo ativo
+    try:
+        await query.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton(f"✍️ Modo de resposta ativo (Chamado #{chamado_id})", callback_data="noop")]
+        ]))
+    except Exception:
+        pass
+
+    await context.bot.send_message(
+        chat_id=ADMIN_ID,
+        text=(
+            f"✍️ <b>Respondendo ao Chamado #{chamado_id}</b>\n\n"
+            "Digite abaixo a mensagem que será enviada ao usuário.\n\n"
+            "<i>Para cancelar, envie /cancelar.</i>"
+        ),
+        parse_mode="HTML",
+    )
+    return AGUARDANDO_RESPOSTA_ADMIN_RAPIDA
+
+
+async def receber_resposta_rapida(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Recebe o texto do admin e envia ao usuário."""
+    if update.effective_user.id != ADMIN_ID:
+        return ConversationHandler.END
+
+    if not update.message or not update.message.text:
+        return AGUARDANDO_RESPOSTA_ADMIN_RAPIDA
+
+    texto = update.message.text.strip()
+    if texto.startswith("/"):
+        return AGUARDANDO_RESPOSTA_ADMIN_RAPIDA
+
+    chamado_id = context.user_data.get("respondendo_chamado_id")
+    if not chamado_id:
+        await update.message.reply_text("❌ Chamado não identificado. Use o botão novamente.")
+        return ConversationHandler.END
+
+    try:
+        # Busca o chamado
+        res = supabase.table("chamados_suporte").select("*").eq("id", chamado_id).execute()
+        if not res.data:
+            await update.message.reply_text(f"❌ Chamado #{chamado_id} não encontrado.")
+            return ConversationHandler.END
+
+        chamado = res.data[0]
+        chat_id_usuario = chamado["chat_id"]
+
+        # Atualiza status
+        from datetime import datetime, timezone
+        agora = datetime.now(timezone.utc).isoformat()
+        supabase.table("chamados_suporte").update({
+            "status": "respondido",
+            "resposta_admin": texto,
+            "atendente_id": str(ADMIN_ID),
+            "respondido_em": agora,
+        }).eq("id", chamado_id).execute()
+
+        # Envia para o usuário
+        await context.bot.send_message(
+            chat_id=chat_id_usuario,
+            text=(
+                "🔔 <b>RESPOSTA AO SEU CHAMADO</b>\n\n"
+                f"📋 <b>Chamado:</b> #{chamado_id}\n\n"
+                f"💬 <b>Central VigiaSaúde:</b>\n{texto}\n\n"
+                "<i>Se precisar complementar, toque no botão abaixo.</i>"
+            ),
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("✍️ Responder à Central", callback_data=f"responder_chamado_{chamado_id}")]
+            ]),
+        )
+
+        # Confirma para o admin
+        await update.message.reply_text(
+            f"✅ <b>Resposta enviada!</b>\n\n"
+            f"Chamado #{chamado_id} foi respondido com sucesso.",
+            parse_mode="HTML",
+        )
+    except Exception as e:
+        logger.error(f"Erro ao enviar resposta rápida: {e}")
+        await update.message.reply_text(f"❌ Erro: {e}")
+
+        context.user_data.pop("respondendo_chamado_id", None)
+
+    # 🚩 Limpa o flag APÓS 2s (para o group=2 ainda ver durante o mesmo update)
+    async def _limpar_flag_depois(ctx):
+        await asyncio.sleep(2)
+        ctx.user_data.pop("_em_fluxo_admin", None)
+
+    if context.application:
+        context.application.create_task(_limpar_flag_depois(context))
+    else:
+            context.user_data.pop("respondendo_chamado_id", None)
+
+    # 🚩 Limpa o flag APÓS 2s (para o group=2 ainda ver durante o mesmo update)
+    async def _limpar_flag_depois(ctx):
+        await asyncio.sleep(2)
+        ctx.user_data.pop("_em_fluxo_admin", None)
+
+    if context.application:
+        context.application.create_task(_limpar_flag_depois(context))
+    else:
+        context.user_data.pop("_em_fluxo_admin", None)
+
+    return ConversationHandler.END
+
+    return ConversationHandler.END
+
+
+async def callback_finalizar_chamado(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Admin clicou em '✅ Finalizar'."""
+    query = update.callback_query
+    await query.answer()
+
+    if update.effective_user.id != ADMIN_ID:
+        return
+
+    chamado_id = int(query.data.replace("adminfim_", ""))
+
+    try:
+        # Busca
+        res = supabase.table("chamados_suporte").select("*").eq("id", chamado_id).execute()
+        if not res.data:
+            await query.edit_message_text("❌ Chamado não encontrado.")
+            return
+
+        chamado = res.data[0]
+
+        # Atualiza
+        supabase.table("chamados_suporte").update({"status": "fechado"}).eq("id", chamado_id).execute()
+
+        # Notifica o usuário
+        try:
+            await context.bot.send_message(
+                chat_id=chamado["chat_id"],
+                text=f"✅ <b>Seu chamado #{chamado_id} foi finalizado.</b>\n\nObrigado pelo contato!",
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass
+
+        await query.edit_message_text(
+            f"✅ <b>Chamado #{chamado_id} finalizado.</b>",
+            parse_mode="HTML",
+        )
+    except Exception as e:
+        logger.error(f"Erro ao finalizar: {e}")
+        await query.edit_message_text(f"❌ Erro: {e}")
+
+
+async def callback_ver_detalhes(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Admin clicou em '👁️ Ver detalhes'."""
+    query = update.callback_query
+    await query.answer()
+
+    if update.effective_user.id != ADMIN_ID:
+        return
+
+    chamado_id = int(query.data.replace("adminver_", ""))
+
+    try:
+        res = supabase.table("chamados_suporte").select("*").eq("id", chamado_id).execute()
+        if not res.data:
+            await query.answer("❌ Não encontrado", show_alert=True)
+            return
+
+        c = res.data[0]
+        texto = (
+            f"📋 <b>Chamado #{c.get('id')}</b>\n\n"
+            f"👤 <b>Usuário:</b> {c.get('nome_usuario', '?')}\n"
+            f"🆔 <b>Chat ID:</b> <code>{c.get('chat_id')}</code>\n"
+            f"📊 <b>Status:</b> {c.get('status')}\n"
+            f"📅 <b>Criado:</b> {c.get('created_at', '')[:19]}\n\n"
+            f"📝 <b>Mensagem:</b>\n{c.get('mensagem', '')}\n"
+        )
+        if c.get("resposta_admin"):
+            texto += f"\n\n✅ <b>Sua resposta:</b>\n{c.get('resposta_admin')}"
+
+        await context.bot.send_message(chat_id=ADMIN_ID, text=texto, parse_mode="HTML")
+    except Exception as e:
+        logger.error(f"Erro ao ver detalhes: {e}")
+
+
+async def cancelar_resposta_rapida(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Cancela o modo de resposta."""
+    context.user_data.pop("respondendo_chamado_id", None)
+
+    # 🚩 Limpa o flag APÓS 2s
+    async def _limpar_flag_depois(ctx):
+        await asyncio.sleep(2)
+        ctx.user_data.pop("_em_fluxo_admin", None)
+
+    if context.application:
+        context.application.create_task(_limpar_flag_depois(context))
+    else:
+        context.user_data.pop("_em_fluxo_admin", None)
+
+    if update.message:
+        await update.message.reply_text("❌ Resposta cancelada.")
+    return ConversationHandler.END
 
 
 __all__ = [
@@ -1361,7 +1590,13 @@ __all__ = [
     "ver_meus_chamados",
     "comando_ver_chamados",
     "comando_responder_chamado",
-    "comando_finalizar_chamado",   # ← ADICIONE
     "cancelar_atendimento",
-    "AGUARDANDO_MENSAGEM_CHAMADO"
+    "AGUARDANDO_MENSAGEM_CHAMADO",
+    # NOVOS
+    "callback_iniciar_resposta",
+    "receber_resposta_rapida",
+    "callback_finalizar_chamado",
+    "callback_ver_detalhes",
+    "cancelar_resposta_rapida",
+    "AGUARDANDO_RESPOSTA_ADMIN_RAPIDA",
 ]

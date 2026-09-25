@@ -65,7 +65,7 @@ async def gerar_resposta_ia(mensagem_usuario: str, contexto: dict = None) -> str
             "4. Informe o celular.\n"
             "5. Informe a data de nascimento.\n"
             "6. Informe o ID da Regulação.\n"
-            "7. Informe o CBO.\n"
+            "7. Informe o Especialidade.\n"
             "8. Informe o Procedimento (Exame ou Consulta).\n"
             "9. Aceite o LGPD.\n\n"
 
