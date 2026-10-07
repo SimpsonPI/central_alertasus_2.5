@@ -1023,10 +1023,12 @@ async def callback_planos(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• <b>Trimestral</b> – R$ 9,99\n"
         "• <b>Semestral</b> – R$ 14,99\n\n"
         "💠 <b>Pagamento:</b> Pix (QR Code ou Copia e Cola)\n\n"
-        "Para assinar, entre em contato com o suporte abaixo."
+        "Para contratar, acesse o <b>Bot VigiaSaúde</b> e envie /planos:\n"
+        "👉 @vigiasaude_bot"
     )
 
     teclado = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🤖 Ir para o Bot VigiaSaúde", url="https://t.me/vigiasaude_bot")],
         [InlineKeyboardButton("📧 Falar com Suporte", callback_data="atendimento_email")],
         [InlineKeyboardButton("⬅️ Menu Principal", callback_data="atendimento_menu")],
     ])
@@ -1366,6 +1368,7 @@ async def comando_finalizar_chamado(update: Update, context: ContextTypes.DEFAUL
 # ==========================================
 
 async def callback_iniciar_resposta(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    print("🔵🔵🔵 callback_iniciar_resposta FOI CHAMADO!", flush=True)
     """Admin clicou em '✍️ Responder' — inicia modo de resposta."""
     query = update.callback_query
     await query.answer()
@@ -1580,6 +1583,158 @@ async def cancelar_resposta_rapida(update: Update, context: ContextTypes.DEFAULT
         await update.message.reply_text("❌ Resposta cancelada.")
     return ConversationHandler.END
 
+# ==========================================
+# PESQUISA DE SATISFAÇÃO
+# ==========================================
+
+async def enviar_pesquisa_satisfacao(context, chat_id: str, chamado_id: int, nome_usuario: str = None):
+    """Envia a pesquisa de satisfação ao usuário após finalização."""
+    nome = nome_usuario or "tudo bem"
+    
+    texto = (
+        f"🌟 <b>Como foi seu atendimento?</b>\n\n"
+        f"Olá{', ' + nome if nome_usuario else ''}! "
+        f"Seu chamado <b>#{chamado_id}</b> foi finalizado.\n\n"
+        "Sua opinião é muito importante para nós. "
+        "Que nota você dá para o atendimento que recebeu?\n\n"
+        "<i>Clique em uma das opções abaixo:</i>"
+    )
+
+    teclado = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("⭐ 1", callback_data=f"avaliar_{chamado_id}_1"),
+            InlineKeyboardButton("⭐⭐ 2", callback_data=f"avaliar_{chamado_id}_2"),
+            InlineKeyboardButton("⭐⭐⭐ 3", callback_data=f"avaliar_{chamado_id}_3"),
+        ],
+        [
+            InlineKeyboardButton("⭐⭐⭐⭐ 4", callback_data=f"avaliar_{chamado_id}_4"),
+            InlineKeyboardButton("⭐⭐⭐⭐⭐ 5", callback_data=f"avaliar_{chamado_id}_5"),
+        ],
+        [InlineKeyboardButton("🚫 Prefiro não avaliar", callback_data=f"avaliar_{chamado_id}_0")],
+    ])
+
+    try:
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=texto,
+            reply_markup=teclado,
+            parse_mode="HTML"
+        )
+        logger.info(f"📊 Pesquisa de satisfação enviada para {chat_id} (chamado #{chamado_id})")
+    except Exception as e:
+        logger.error(f"Erro ao enviar pesquisa de satisfação para {chat_id}: {e}")
+
+
+async def processar_avaliacao(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Processa a resposta da pesquisa de satisfação."""
+    query = update.callback_query
+    await query.answer()
+
+    try:
+        # callback_data = "avaliar_{chamado_id}_{nota}"
+        partes = query.data.split("_")
+        chamado_id = int(partes[1])
+        nota = int(partes[2])
+    except (IndexError, ValueError):
+        await query.edit_message_text("❌ Ocorreu um erro ao processar sua avaliação.")
+        return
+
+    # Caso o usuário escolha "Prefiro não avaliar"
+    if nota == 0:
+        try:
+            await query.edit_message_text(
+                "Tudo bem! Obrigado pela sua atenção. 💙\n\n"
+                "Se precisar de algo, estamos por aqui."
+            )
+        except Exception:
+            pass
+        return
+
+    # Salva a nota no banco
+    try:
+        from datetime import datetime, timezone
+        supabase.table("chamados_suporte").update({
+            "avaliacao": nota,
+            "avaliado_em": datetime.now(timezone.utc).isoformat()
+        }).eq("id", chamado_id).execute()
+
+        logger.info(f"📊 Chamado #{chamado_id} avaliado com nota {nota}")
+    except Exception as e:
+        logger.error(f"Erro ao salvar avaliação do chamado #{chamado_id}: {e}")
+
+    # Mensagem de agradecimento
+    emojis = {
+        1: "😞", 2: "😐", 3: "🙂", 4: "😄", 5: "🤩"
+    }
+    agradecimentos = {
+        1: "Sentimos muito que não foi uma boa experiência. Vamos trabalhar para melhorar!",
+        2: "Obrigado pelo feedback. Vamos melhorar cada vez mais.",
+        3: "Obrigado pela avaliação! Vamos continuar evoluindo.",
+        4: "Que bom que gostou! Obrigado pela confiança. 💙",
+        5: "Ficamos muito felizes! Obrigado por avaliar nosso atendimento. 🌟",
+    }
+
+    emoji = emojis.get(nota, "👍")
+    msg = agradecimentos.get(nota, "Obrigado pela avaliação!")
+
+    try:
+        await query.edit_message_text(
+            f"{emoji} <b>Obrigado pela sua avaliação!</b>\n\n"
+            f"Você deu nota <b>{nota}/5</b> para o chamado <b>#{chamado_id}</b>.\n\n"
+            f"{msg}",
+            parse_mode="HTML"
+        )
+    except Exception as e:
+        logger.error(f"Erro ao editar mensagem de agradecimento: {e}")
+
+    # Notifica o admin sobre a avaliação
+    try:
+        if nota >= 4:
+            prefixo = "🌟 <b>NOVA AVALIAÇÃO POSITIVA</b>"
+        elif nota >= 3:
+            prefixo = "🙂 <b>NOVA AVALIAÇÃO NEUTRA</b>"
+        else:
+            prefixo = "⚠️ <b>NOVA AVALIAÇÃO NEGATIVA</b>"
+
+        nome_user = query.from_user.first_name or "Usuário"
+        await context.bot.send_message(
+            chat_id=ADMIN_ID,
+            text=(
+                f"{prefixo}\n\n"
+                f"📋 <b>Chamado:</b> #{chamado_id}\n"
+                f"👤 <b>Usuário:</b> {nome_user}\n"
+                f"⭐ <b>Nota:</b> {nota}/5"
+            ),
+            parse_mode="HTML"
+        )
+    except Exception as e:
+        logger.error(f"Erro ao notificar admin sobre avaliação: {e}")
+
+async def verificar_chamados_para_avaliar(context):
+    """Envia pesquisa de satisfação para chamados finalizados e ainda não avaliados."""
+    try:
+        res = supabase.table("chamados_suporte").select("*").in_(
+            "status", ["resolvido", "fechado"]
+        ).is_("avaliacao", "null").is_("pesquisa_enviada_em", "null").execute()
+
+        for chamado in (res.data or []):
+            chat_id = chamado.get("chat_id")
+            chamado_id = chamado.get("id")
+            nome = chamado.get("nome_usuario")
+
+            if not chat_id or not chamado_id:
+                continue
+
+            await enviar_pesquisa_satisfacao(context, chat_id, chamado_id, nome)
+
+            # Marca como pesquisa enviada para não repetir
+            from datetime import datetime, timezone
+            supabase.table("chamados_suporte").update({
+                "pesquisa_enviada_em": datetime.now(timezone.utc).isoformat()
+            }).eq("id", chamado_id).execute()
+
+    except Exception as e:
+        logger.error(f"Erro ao verificar chamados para avaliar: {e}")
 
 __all__ = [
     "menu_atendimento",

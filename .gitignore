@@ -19,3 +19,8 @@ __pycache__/
 .env
 
 main_backup.py
+
+servidor.pid
+servidor.log
+
+
